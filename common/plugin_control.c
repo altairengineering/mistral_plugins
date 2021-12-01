@@ -107,8 +107,6 @@ static struct {
     }
 };
 
-/** From the header file **/
-
 /* Store the lengths of the scopes to avoid using strlen */
 size_t mistral_call_type_len[CALL_TYPE_MAX] = {
     #define X(name, str) sizeof(str) - 1,
@@ -207,7 +205,6 @@ const char * const mistral_log_message[PLUGIN_MESSAGE_LIMIT] = {
     PLUGIN_MESSAGE(X)
     #undef X
 };
-/** End of Formerly in the header **/
 
 /*
  * mistral_err
@@ -236,7 +233,8 @@ int mistral_err(const char *format, ...)
         sem_claimed = true;
 
         if (!(mistral_plugin_info.flags & PLUGIN_ERRLOG_INIT) &&
-            mistral_plugin_info.error_log_name) {
+            mistral_plugin_info.error_log_name)
+        {
             if (mistral_plugin_info.error_log_mode > 0) {
                 mode_t old_mask = umask(00);
                 int fd = open(mistral_plugin_info.error_log_name,

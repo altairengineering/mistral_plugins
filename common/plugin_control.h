@@ -15,13 +15,6 @@
 
 #include "mistral_plugin.h"     /* Definitions that need to be available to plug-in developers */
 
-/* Store the lengths of the scopes to avoid using strlen */
-size_t mistral_call_type_len[CALL_TYPE_MAX] = {
-    #define X(name, str) sizeof(str) - 1,
-    CALL_TYPE(X)
-    #undef X
-};
-
 /* Version of the API used by the plug-in */
 #define MISTRAL_API_VERSION 6
 
