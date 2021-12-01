@@ -8,7 +8,19 @@
 #include <stddef.h>             /* size_t */
 #include <stdint.h>             /* uint32_t */
 #include <stdio.h>              /* FILE */
+#include <fcntl.h>              /* open */
 #include <sys/time.h>           /* struct timeval */
+#include <sys/stat.h>           /* open, umask */
+#include <sys/types.h>          /* open, umask */
+
+#include "mistral_plugin.h"     /* Definitions that need to be available to plug-in developers */
+
+/* Store the lengths of the scopes to avoid using strlen */
+size_t mistral_call_type_len[CALL_TYPE_MAX] = {
+    #define X(name, str) sizeof(str) - 1,
+    CALL_TYPE(X)
+    #undef X
+};
 
 /* Version of the API used by the plug-in */
 #define MISTRAL_API_VERSION 6
