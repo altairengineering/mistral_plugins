@@ -9,14 +9,6 @@
 #include <stdint.h>             /* uint32_t */
 #include <stdio.h>              /* FILE */
 #include <sys/time.h>           /* struct timeval */
-#include "mistral_plugin.h"     /* Definitions that need to be available to plug-in developers */
-
-/* Store the lengths of the scopes to avoid using strlen */
-size_t mistral_call_type_len[CALL_TYPE_MAX] = {
-    #define X(name, str) sizeof(str) - 1,
-    CALL_TYPE(X)
-    #undef X
-};
 
 /* Version of the API used by the plug-in */
 #define MISTRAL_API_VERSION 6
@@ -51,18 +43,14 @@ enum mistral_message {
     PLUGIN_MESSAGE_LIMIT
 };
 
-/* Store the lengths of the messages to avoid using strlen */
-size_t mistral_log_msg_len[PLUGIN_MESSAGE_LIMIT] = {
-    #define X(P, V) sizeof(V) - 1,
-    PLUGIN_MESSAGE(X)
-    #undef X
-};
+#define ARRAY_LENGTH(array) (sizeof(array) / sizeof((array)[0]))
 
-const char * const mistral_log_message[PLUGIN_MESSAGE_LIMIT] = {
-    #define X(P, V) V,
-    PLUGIN_MESSAGE(X)
-    #undef X
-};
+#define CALL_IF_DEFINED(function, ...) \
+    if (function) {                    \
+        function(__VA_ARGS__);         \
+    }
+
+#endif
 
 #define LOG_FIELD(X) \
     X(TIMESTAMP)     \
@@ -93,91 +81,47 @@ enum mistral_log_fields {
     FIELD_MAX
 };
 
-/* Create various string arrays based off of the mistral_plugin.h header */
-const char * const mistral_contract_name[] = {
-    #define X(name, str, header) str,
-    CONTRACT(X)
-    #undef X
-    NULL
+/** Logging code **/
+
+#define LOG_MODULES(X) \
+   X(plugin)
+
+#define LOG_LEVELS(X) \
+   X(ERROR)           \
+   X(WARNING)         \
+   X(MAJOR)           \
+   X(NOTICE)          \
+   X(MINOR)           \
+   X(TRIVIAL)         \
+   X(DEBUG)
+
+#define LOG(module, level, format, ...)                        \
+    ((log_level[LOG_module_ ## module] >= DR_LOG_ ## level) && \
+     (mistral_err("LOG (" #module " %d): %s(%d)" format "\n",  \
+                     DR_LOG_ ## level, __FILE__, __LINE__, ## __VA_ARGS__), false))
+
+__attribute__((__format__(printf, 3, 4)))
+extern void dr_output_log(size_t module, int level, const char * restrict fmt, ...);
+
+#define IF_LOGGING(module, level) \
+    do {                          \
+        if (log_level[LOG_module_ ## module] >= DR_LOG_ ## level)
+
+#define ENDIF_LOGGING \
+    } while(0)
+
+#define LOG_MODULE_ENUM(module) LOG_module_ ## module,
+enum {
+    LOG_MODULES(LOG_MODULE_ENUM)
+    LOG_module_MAX,
 };
 
-const char * const mistral_contract_header[] = {
-    #define X(name, str, header) header,
-    CONTRACT(X)
-    #undef X
-    NULL
+#define LOG_LEVEL_ENUM(level) DR_LOG_ ## level,
+enum log_levels_e {
+    LOG_LEVELS(LOG_LEVEL_ENUM)
+    DR_LOG_LEVEL_MAX,
 };
 
-const char * const mistral_scope_name[] = {
-    #define X(name, str) str,
-    SCOPE(X)
-    #undef X
-    NULL
-};
+extern int log_level[LOG_module_MAX];
 
-const char * const mistral_measurement_name[] = {
-    #define X(name, str) str,
-    MEASUREMENT(X)
-    #undef X
-    NULL
-};
-
-const char * const mistral_unit_class_name[] = {
-    #define X(name, str) str,
-    UNIT_CLASS(X)
-    #undef X
-    NULL
-};
-
-const char * const mistral_unit_suffix[] = {
-    #define X(name, str, scale, type) str,
-    UNIT(X)
-    #undef X
-    NULL
-};
-
-const char * const mistral_call_type_name[] = {
-    #define X(name, str) str,
-    CALL_TYPE(X)
-    #undef X
-    NULL
-};
-
-const uint32_t mistral_call_type_mask[] = {
-    #define X(name, str) BITMASK(CALL_TYPE_ ## name),
-    CALL_TYPE(X)
-    #undef X
-    BITMASK(CALL_TYPE_MAX)
-};
-
-char mistral_call_type_names[CALL_TYPE_MASK_MAX][
-    #define X(name, str) + sizeof(str) + 1
-    CALL_TYPE(X)
-#undef X
-] = {
-    #define X(name, str) "",
-    CALL_TYPE(X)
-    #undef X
-};
-
-/* Similarly create some constant integer arrays */
-const uint32_t mistral_unit_scale[] = {
-    #define X(name, str, scale, type) scale,
-    UNIT(X)
-    #undef X
-};
-
-const uint32_t mistral_unit_type[] = {
-    #define X(name, str, scale, type) type,
-    UNIT(X)
-    #undef X
-};
-
-#define ARRAY_LENGTH(array) (sizeof(array) / sizeof((array)[0]))
-
-#define CALL_IF_DEFINED(function, ...) \
-    if (function) {                    \
-        function(__VA_ARGS__);         \
-    }
-
-#endif
+/** End of Logging **/
