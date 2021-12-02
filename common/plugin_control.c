@@ -170,16 +170,6 @@ const uint32_t mistral_call_type_mask[] = {
     BITMASK(CALL_TYPE_MAX)
 };
 
-char mistral_call_type_names[CALL_TYPE_MASK_MAX][
-    #define X(name, str) + sizeof(str) + 1
-    CALL_TYPE(X)
-#undef X
-] = {
-    #define X(name, str) "",
-    CALL_TYPE(X)
-    #undef X
-};
-
 /* Similarly create some constant integer arrays */
 const uint32_t mistral_unit_scale[] = {
     #define X(name, str, scale, type) scale,
@@ -301,7 +291,7 @@ int mistral_err(const char *format, ...)
     fflush(log_stream);
 
     if (sem_claimed && sem_post(&mistral_plugin_info.lock) != 0) {
-        /* We didn't free the semaphore - this is going to go very wrong exit immediately */
+        /* We didn't free the semaphore - this is going to go very wrong. Exit immediately. */
         char buf[256];
         fprintf(log_stream, "Error releasing semaphore, exiting: %s\n",
                 strerror_r(errno, buf, sizeof buf));
@@ -1850,11 +1840,11 @@ static void *processing_thread(void *arg)
             sleep(1);
         }
     }
-    LOG(plugin, MINOR, "About to exit processing thread with return code %d.", ret);
+    LOG(plugin, MAJOR, "Exiting processing thread with return code %d.", ret);
     pthread_exit(&ret);
 }
 
-void initialise_logging()
+static void initialize_logging(void)
 {
     size_t module;
     bool level_set[LOG_module_MAX];
@@ -1979,7 +1969,7 @@ void initialise_logging()
 int main(int argc, char **argv)
 {
     int res = -1;
-    initialise_logging();
+    initialize_logging();
     pthread_t thread_id = 0;
     if (sem_init(&mistral_plugin_info.lock, 0, 1) < 0) {
         char buf[256];
@@ -2022,12 +2012,14 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         }
 
+        LOG(plugin, MAJOR, "Starting processing thread.");
         /* Create the processing thread */
         res = pthread_create(&thread_id, NULL, processing_thread, &set);
         if (res == 0) {
-            read_data_from_mistral();
+            (void)read_data_from_mistral();
         } else {
             char buf[256];
+            LOG(plugin, MAJOR, "Couldn't start processing thread.");
             mistral_err("Unable to start processing thread: (%s)\n",
                         strerror_r(res, buf, sizeof buf));
             send_message_to_mistral(PLUGIN_MESSAGE_SHUTDOWN);
@@ -2068,5 +2060,6 @@ int main(int argc, char **argv)
     tdestroy(mask_root, mask_destroy);
     mask_root = NULL;
     CALL_IF_DEFINED(mistral_exit);
+    LOG(plugin, MAJOR, "Plugin exiting with EXIT_SUCCESS.");
     return EXIT_SUCCESS;
 }

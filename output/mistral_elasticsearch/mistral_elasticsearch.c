@@ -446,8 +446,6 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
     plugin->error_log_mode = new_mode;
     plugin->flags = 0;
 
-    LOG(plugin, MINOR, "Received mistral_startup message and parsed arguments.");
-
     if (password != NULL) {
         /* If the password starts with file: it is actually the path to a file to read the
          * password from.
@@ -596,7 +594,7 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
  */
 void mistral_exit(void)
 {
-    LOG(plugin, MAJOR, "Received mistral_exit message");
+    LOG(plugin, MAJOR, "About to exit plugin.");
 
     if (log_list_head) {
         mistral_received_data_end(0, false);
@@ -641,7 +639,7 @@ void mistral_exit(void)
  */
 void mistral_received_log(mistral_log *log_entry)
 {
-    LOG(plugin, DEBUG, "Received mistral_received_log message");
+    LOG(plugin, DEBUG, "Received log message");
     if (!log_list_head) {
         /* Initialise linked list */
         log_list_head = log_entry;
@@ -681,7 +679,7 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
     UNUSED(block_num);
     UNUSED(block_error);
 
-    LOG(plugin, MINOR, "Received mistral_received_data_end message");
+    LOG(plugin, MINOR, "Received data-end message");
 
     char *data = NULL;
 
@@ -907,7 +905,7 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
  */
 void mistral_received_shutdown(void)
 {
-    LOG(plugin, MAJOR, "Received mistral_received_shutdown message");
+    LOG(plugin, MAJOR, "Received shutdown message");
     if (log_list_head) {
         mistral_received_data_end(0, false);
     }

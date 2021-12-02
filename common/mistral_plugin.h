@@ -157,11 +157,6 @@ enum __attribute__((packed)) mistral_bitmask {
 
 extern const char * const mistral_call_type_name[];
 extern const uint32_t mistral_call_type_mask[];
-extern char mistral_call_type_names[CALL_TYPE_MASK_MAX][
-    #define X(name, str) + sizeof(str) + 1
-    CALL_TYPE(X)
-#undef X
-];
 
 typedef struct mistral_plugin {
     sem_t lock;
@@ -226,9 +221,6 @@ typedef struct mistral_header {
     enum mistral_unit timeframe_unit;
 } mistral_header;
 
-#define MISTRAL_HEADER_INITIALIZER {.contract_type = CONTRACT_MAX, \
-                                    .timeframe_unit = UNIT_MAX}
-
 typedef struct mistral_rule {
     char *label;
     char *path;
@@ -241,11 +233,6 @@ typedef struct mistral_rule {
     uint64_t threshold;
     enum mistral_unit threshold_unit;
 } mistral_rule;
-
-#define MISTRAL_RULE_INITIALIZER {.size_min_unit = UNIT_MAX,      \
-                                  .size_max_unit = UNIT_MAX,      \
-                                  .measurement = MEASUREMENT_MAX, \
-                                  .threshold_unit = MAX_UNIT}
 
 extern const int64_t mistral_max_size;    /* Holds max value of ssize_t as
                                            * defined in plugin_control.o
