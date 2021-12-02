@@ -614,8 +614,6 @@ void mistral_exit(void)
     free(auth);
     free(url);
 
-    LOG(plugin, MINOR, "");
-
     if (log_file_ptr && *log_file_ptr != stderr) {
         fclose(*log_file_ptr);
         *log_file_ptr = stderr;
