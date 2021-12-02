@@ -12,6 +12,7 @@
 #include <sys/types.h>          /* open, umask */
 
 #include "mistral_plugin.h"
+#include "plugin_control.h"
 
 #define VALID_NAME_CHARS "1234567890abcdefghijklmnopqrstvuwxyzABCDEFGHIJKLMNOPQRSTVUWXYZ-_"
 
@@ -119,7 +120,7 @@ static void usage(const char *name)
      */
     mistral_err("Usage:\n"
                 "  %s [-i index] [-h host] [-P port] [-e file] [-m octal-mode] [-u user] [-p password] [-s] [-v var-name ...]\n"
-                     "[-k] [-c certificate_path] [--cert-dir=certificate_directory]\n", name);
+                "[-k] [-c certificate_path] [--cert-dir=certificate_directory]\n", name);
     mistral_err("\n"
                 "  --cert-path=certificate_path\n"
                 "  -c certificate_path\n"
@@ -132,7 +133,7 @@ static void usage(const char *name)
                 "     certificate of the ElasticSearch server.  Certificates in this\n"
                 "     directory should be named after the hashed certificate subject\n"
                 "     name, see ``man openssl verify`` for details of the ``CApath`` option.\n"
-                 "\n"
+                "\n"
                 "  --date \n"
                 "  -d\n"
                 "     Use date based index names e.g. ``<idx_name>-yyyy-MM-dd`` rather than the default\n"
@@ -290,9 +291,9 @@ static char *elasticsearch_escape(const char *string)
  */
 void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
 {
-     /* Returning without setting plug-in type will cause a clean exit */
+    /* Returning without setting plug-in type will cause a clean exit */
 
-   #define CERT_DIR_OPTION_CODE 1001
+    #define CERT_DIR_OPTION_CODE 1001
 
     static const struct option options[] = {
         {"index", required_argument, NULL, 'i'},
@@ -438,7 +439,7 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
 
     log_file_ptr = &(plugin->error_log);
 
-    /* Error file is opened/created by the first error_msg 
+    /* Error file is opened/created by the first error_msg
      */
     plugin->error_log = stderr;
     plugin->error_log_name = (char *)error_file;
@@ -520,7 +521,7 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
             mistral_err("Could not set curl certificate directory (CAPATH) '%s'\n", cert_dir);
             return;
         }
-    }    
+    }
 
     /* Use a custom write function to save any response from Elasticsearch */
     if (!set_curl_option(CURLOPT_WRITEFUNCTION, write_callback)) {
@@ -571,6 +572,9 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
             return;
         }
     }
+
+    LOG(plugin, MAJOR, "ElasticSearch Plug-in setup complete");
+
     /* Returning after this point indicates success */
     plugin->type = OUTPUT_PLUGIN;
 }
@@ -590,6 +594,8 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
  */
 void mistral_exit(void)
 {
+    LOG(plugin, MAJOR, "About to exit plugin.");
+
     if (log_list_head) {
         mistral_received_data_end(0, false);
     }
@@ -631,6 +637,7 @@ void mistral_exit(void)
  */
 void mistral_received_log(mistral_log *log_entry)
 {
+    LOG(plugin, DEBUG, "Received log message");
     if (!log_list_head) {
         /* Initialise linked list */
         log_list_head = log_entry;
@@ -669,6 +676,8 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
 {
     UNUSED(block_num);
     UNUSED(block_error);
+
+    LOG(plugin, MINOR, "Received data-end message");
 
     char *data = NULL;
 
@@ -728,10 +737,12 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
         if (index_use_date_format) {
             /* Date based index naming */
             strftime(strdate, date_len, "%F", &utc_time);
-            res = asprintf(&index_definition, "{\"index\":{\"_index\":\"%s-%s\"%s}}\n", es_index, strdate, doc_type);
+            res = asprintf(&index_definition, "{\"index\":{\"_index\":\"%s-%s\"%s}}\n", es_index,
+                           strdate, doc_type);
         } else {
             /* Write to index alias, allow rollover to sort this out */
-            res = asprintf(&index_definition, "{\"index\":{\"_index\":\"%s\"%s}}\n", es_index, doc_type);
+            res = asprintf(&index_definition, "{\"index\":{\"_index\":\"%s\"%s}}\n", es_index,
+                           doc_type);
         }
         if (index_definition == NULL || res == -1) {
             mistral_err("Could not allocate memory for log index\n");
@@ -892,6 +903,7 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
  */
 void mistral_received_shutdown(void)
 {
+    LOG(plugin, MAJOR, "Received shutdown message");
     if (log_list_head) {
         mistral_received_data_end(0, false);
     }

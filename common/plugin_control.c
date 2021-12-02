@@ -6,6 +6,7 @@
  * plug-ins. This alias, combined with our naming convention produces nice function names for the
  * external interface.
  */
+#include <ctype.h>              /* isalpha, isdigit, isspace */
 #include <errno.h>              /* errno */
 #include <inttypes.h>           /* uint32_t, uint64_t */
 #include <limits.h>             /* SSIZE_MAX */
@@ -22,6 +23,7 @@
 #include <sys/time.h>           /* gettimeofday, localtime, strftime */
 #include <unistd.h>             /* STDOUT_FILENO, STDIN_FILENO, setsid, gethostname */
 
+#include "mistral_plugin.h"     /* Definitions that need to be available to plug-in developers */
 #include "plugin_control.h"
 
 typedef struct message_details {            /* Structure used to store received messages */
@@ -68,6 +70,132 @@ const int64_t mistral_max_size = SSIZE_MAX;
  */
 struct timeval mistral_plugin_end;
 
+/* The actual log levels for each module. Initialized to
+ * DR_LOG_LEVEL_MAX so that before we have obtained the actual log level
+ * settings (from ELLEXUS_LOG_LEVEL) we capture every log message in the
+ * queue.
+ */
+
+#define LOG_LEVEL_INIT(module) DR_LOG_LEVEL_MAX,
+
+int log_level[LOG_module_MAX] = {
+    LOG_MODULES(LOG_LEVEL_INIT)
+};
+
+/* To set per-module logging levels we need to have in hand the module
+ * names, and level names, and for efficiency their lengths. */
+
+static struct {
+    const char *name;
+    size_t len;
+} log_module_names[] = {
+    #define MODULE_NAME(module) { #module, sizeof(#module)-1 },
+    LOG_MODULES(MODULE_NAME)
+    {
+        NULL, 0
+    }
+};
+
+static struct {
+    const char *name;
+    size_t len;
+} log_level_names[] = {
+    #define LEVEL_NAME(level) { #level, sizeof(#level)-1 },
+    LOG_LEVELS(LEVEL_NAME)
+    {
+        NULL, 0
+    }
+};
+
+/* Store the lengths of the scopes to avoid using strlen */
+size_t mistral_call_type_len[CALL_TYPE_MAX] = {
+    #define X(name, str) sizeof(str) - 1,
+    CALL_TYPE(X)
+    #undef X
+};
+/* Create various string arrays based off of the mistral_plugin.h header */
+const char * const mistral_contract_name[] = {
+    #define X(name, str, header) str,
+    CONTRACT(X)
+    #undef X
+    NULL
+};
+
+const char * const mistral_contract_header[] = {
+    #define X(name, str, header) header,
+    CONTRACT(X)
+    #undef X
+    NULL
+};
+
+const char * const mistral_scope_name[] = {
+    #define X(name, str) str,
+    SCOPE(X)
+    #undef X
+    NULL
+};
+
+const char * const mistral_measurement_name[] = {
+    #define X(name, str) str,
+    MEASUREMENT(X)
+    #undef X
+    NULL
+};
+
+const char * const mistral_unit_class_name[] = {
+    #define X(name, str) str,
+    UNIT_CLASS(X)
+    #undef X
+    NULL
+};
+
+const char * const mistral_unit_suffix[] = {
+    #define X(name, str, scale, type) str,
+    UNIT(X)
+    #undef X
+    NULL
+};
+
+const char * const mistral_call_type_name[] = {
+    #define X(name, str) str,
+    CALL_TYPE(X)
+    #undef X
+    NULL
+};
+
+const uint32_t mistral_call_type_mask[] = {
+    #define X(name, str) BITMASK(CALL_TYPE_ ## name),
+    CALL_TYPE(X)
+    #undef X
+    BITMASK(CALL_TYPE_MAX)
+};
+
+/* Similarly create some constant integer arrays */
+const uint32_t mistral_unit_scale[] = {
+    #define X(name, str, scale, type) scale,
+    UNIT(X)
+    #undef X
+};
+
+const uint32_t mistral_unit_type[] = {
+    #define X(name, str, scale, type) type,
+    UNIT(X)
+    #undef X
+};
+
+/* Store the lengths of the messages to avoid using strlen */
+size_t mistral_log_msg_len[PLUGIN_MESSAGE_LIMIT] = {
+    #define X(P, V) sizeof(V) - 1,
+    PLUGIN_MESSAGE(X)
+    #undef X
+};
+
+const char * const mistral_log_message[PLUGIN_MESSAGE_LIMIT] = {
+    #define X(P, V) V,
+    PLUGIN_MESSAGE(X)
+    #undef X
+};
+
 /*
  * mistral_err
  *
@@ -95,7 +223,8 @@ int mistral_err(const char *format, ...)
         sem_claimed = true;
 
         if (!(mistral_plugin_info.flags & PLUGIN_ERRLOG_INIT) &&
-            mistral_plugin_info.error_log_name) {
+            mistral_plugin_info.error_log_name)
+        {
             if (mistral_plugin_info.error_log_mode > 0) {
                 mode_t old_mask = umask(00);
                 int fd = open(mistral_plugin_info.error_log_name,
@@ -162,7 +291,7 @@ int mistral_err(const char *format, ...)
     fflush(log_stream);
 
     if (sem_claimed && sem_post(&mistral_plugin_info.lock) != 0) {
-        /* We didn't free the semaphore - this is going to go very wrong exit immediately */
+        /* We didn't free the semaphore - this is going to go very wrong. Exit immediately. */
         char buf[256];
         fprintf(log_stream, "Error releasing semaphore, exiting: %s\n",
                 strerror_r(errno, buf, sizeof buf));
@@ -332,6 +461,7 @@ const char *mistral_get_call_type_name(uint32_t mask)
  */
 static bool send_string_to_mistral(const char *message)
 {
+    LOG(plugin, MINOR, "About to send data to Mistral: '%s'.", message);
     const char *message_start = message;
     size_t message_len = strlen(message);
 
@@ -1446,6 +1576,7 @@ static enum mistral_message parse_message(char *line)
     case PLUGIN_MESSAGE_SHUTDOWN:
         /* Handle a clean shut down */
         shutdown_message = true;
+        LOG(plugin, MAJOR, "Received shutdown message from Mistral.");
         /* Once we've been told to shutdown Mistral will not read any message we send so simply
          * detach the process. This will prevent blocking Mistral from exiting while we finish
          * processing any stored messages.
@@ -1561,6 +1692,7 @@ static bool read_data_from_mistral(void)
                (gl_res = getline(&line, &line_length, stdin)) > 0)
         {
             if (line != NULL) {
+                LOG(plugin, MINOR, "From Mistral: '%s'.", line);
                 enum mistral_message message = parse_message(line);
 
                 if (message == PLUGIN_MESSAGE_SHUTDOWN) {
@@ -1701,12 +1833,118 @@ static void *processing_thread(void *arg)
                             mistral_log_message[message->message]);
                 ret = EXIT_FAILURE;
             }
+            LOG(plugin, DEBUG, "About to free message.");
             destroy_message_details(message);
+            LOG(plugin, DEBUG, "Message freed successfully.");
         } else {
             sleep(1);
         }
     }
+    LOG(plugin, MAJOR, "Exiting processing thread with return code %d.", ret);
     pthread_exit(&ret);
+}
+
+static void initialize_logging(void)
+{
+    size_t module;
+    bool level_set[LOG_module_MAX];
+    for (module = 0; module < LOG_module_MAX; ++module) {
+        level_set[module] = false;
+    }
+    const char *p = getenv("ELLEXUS_LOG_LEVEL");
+    if (p && *p) {
+        /* divide the configuration into settings, space-separated. Each
+         * setting is <level> or <module>:<level>, where <module> can be any
+         * module name. */
+        while (*p) {
+            const char *q = p;
+
+            /* find the end of the first part, marked by the end of the
+             * string, or by whitespace, or by a colon */
+            while (*q && !isspace(*q) && *q != ':') {
+                ++q;
+            }
+
+            /* if there was nothing (e.g. whitespace), then skip */
+            if (q == p) {
+                ++p;
+                continue;
+            }
+
+            module = LOG_module_MAX; /* meaning "all" */
+            /* If we found a colon then the first part should be a module
+             * name */
+            if (*q == ':') {
+                for (module = 0; module < LOG_module_MAX; ++module) {
+                    if (strncasecmp(p, log_module_names[module].name,
+                                    log_module_names[module].len) == 0)
+                    {
+                        p += log_module_names[module].len;
+                        break;
+                    }
+                }
+                if (p != q) {
+                    /* either not recognised or additional characters after
+                     * the module name: unrecognised. */
+                    p = q;
+                    continue;
+                }
+                ++q;
+                p = q;
+                /* find the end of the level, marked by the end of the
+                 * string, or by whitespace */
+                while (*q && !isspace(*q)) {
+                    ++q;
+                }
+            }
+
+            /* now p points to the level, and q just past it */
+            int level = DR_LOG_LEVEL_MAX;
+            if (isdigit(*p)) { /* numeric */
+                char *end;
+                level = strtol((char *)p, &end, 0);
+                p = end;
+            } else if (isalpha(*p)) { /* textual: compare to level names */
+                for (level = 0; log_level_names[level].name != NULL; ++level) {
+                    if (strncasecmp(p, log_level_names[level].name,
+                                    log_level_names[level].len) == 0)
+                    {
+                        p += log_level_names[level].len;
+                        break;
+                    }
+                }
+            }
+            if (p != q) {
+                /* unrecognised level or module. Skip this whole part. */
+                p = q;
+                continue;
+            }
+
+            /* Cap the level */
+            if (level < DR_LOG_ERROR || level > DR_LOG_DEBUG) {
+                level = DR_LOG_DEBUG;
+            }
+
+            /* Set the level */
+            if (module == LOG_module_MAX) {
+                for (module = 0; module < LOG_module_MAX; ++module) {
+                    log_level[module] = level;
+                    level_set[module] = true;
+                }
+            } else {
+                log_level[module] = level;
+                level_set[module] = true;
+            }
+        }
+    }
+
+    /* Set any not-yet-set modules to WARNING. We do this at the end to
+     * avoid losing messages from other threads in a race. */
+    for (module = 0; module < LOG_module_MAX; ++module) {
+        if (!level_set[module]) {
+            log_level[module] = DR_LOG_WARNING;
+        }
+    }
 }
 
 /*
@@ -1731,6 +1969,7 @@ static void *processing_thread(void *arg)
 int main(int argc, char **argv)
 {
     int res = -1;
+    initialize_logging();
     pthread_t thread_id = 0;
     if (sem_init(&mistral_plugin_info.lock, 0, 1) < 0) {
         char buf[256];
@@ -1773,12 +2012,14 @@ int main(int argc, char **argv)
             return EXIT_FAILURE;
         }
 
+        LOG(plugin, MAJOR, "Starting processing thread.");
         /* Create the processing thread */
         res = pthread_create(&thread_id, NULL, processing_thread, &set);
         if (res == 0) {
-            read_data_from_mistral();
+            (void)read_data_from_mistral();
         } else {
             char buf[256];
+            LOG(plugin, MAJOR, "Couldn't start processing thread.");
             mistral_err("Unable to start processing thread: (%s)\n",
                         strerror_r(res, buf, sizeof buf));
             send_message_to_mistral(PLUGIN_MESSAGE_SHUTDOWN);
@@ -1788,13 +2029,16 @@ int main(int argc, char **argv)
 
     /* Wait for the processing thread to finish processing the message list */
     if (res == 0) {
+        LOG(plugin, MINOR, "Waiting for processing thread %lu.", thread_id);
         pthread_join(thread_id, NULL);
+        LOG(plugin, MINOR, "Processing thread complete.");
     }
 
     /* Even though the processing thread returns a success state we don't actually need to examine
      * it as we just need to know whether or not to inform Mistral that we are shutting down.
      */
     if (!shutdown_message) {
+        LOG(plugin, MINOR, "Closing, but no shutdown message received.");
         /* Mistral did not tell us to exit */
         send_message_to_mistral(PLUGIN_MESSAGE_SHUTDOWN);
     }
@@ -1816,5 +2060,6 @@ int main(int argc, char **argv)
     tdestroy(mask_root, mask_destroy);
     mask_root = NULL;
     CALL_IF_DEFINED(mistral_exit);
+    LOG(plugin, MAJOR, "Plugin exiting with EXIT_SUCCESS.");
     return EXIT_SUCCESS;
 }
