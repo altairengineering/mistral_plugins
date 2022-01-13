@@ -48,10 +48,23 @@ package-mistral_elasticsearch:
 package:
 	$(MAKE) -C common
 	$(MAKE) -C output/mistral_elasticsearch package
+	$(MAKE) -C output/mistral_fluentbit package
+	$(MAKE) -C output/mistral_graphite package
+	$(MAKE) -C output/mistral_influxdb package
+	$(MAKE) -C output/mistral_mysql package
+	$(MAKE) -C output/mistral_postgresql package
+	$(MAKE) -C output/mistral_rtm package
+	$(MAKE) -C output/mistral_splunk package
+
+.PHONY: package-aarch64
+package-aarch64:
+	$(MAKE) -C common
+	$(MAKE) -C output/mistral_elasticsearch package
+	$(MAKE) -C output/mistral_fluentbit package
 	$(MAKE) -C output/mistral_graphite package
 	$(MAKE) -C output/mistral_influxdb package
 	$(MAKE) -C output/mistral_splunk package
-	$(MAKE) -C output/mistral_fluentbit package
+# Not yet supported on aarch64
 #	$(MAKE) -C output/mistral_mysql package
 #	$(MAKE) -C output/mistral_postgresql package
 #	$(MAKE) -C output/mistral_rtm package
@@ -60,10 +73,10 @@ package:
 clean:
 	$(MAKE) -C common clean
 	$(MAKE) -C output/mistral_elasticsearch clean
+	$(MAKE) -C output/mistral_fluentbit clean
 	$(MAKE) -C output/mistral_graphite clean
-	$(MAKE) -C output/mistral_mysql clean
 	$(MAKE) -C output/mistral_influxdb clean
+	$(MAKE) -C output/mistral_mysql clean
 	$(MAKE) -C output/mistral_postgresql clean
 	$(MAKE) -C output/mistral_rtm clean
 	$(MAKE) -C output/mistral_splunk clean
-	$(MAKE) -C output/mistral_fluentbit clean

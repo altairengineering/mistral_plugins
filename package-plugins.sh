@@ -93,12 +93,19 @@ fi
 BUILD32=""
 BUILD64=""
 BUILD_ARM64=""
+
+ARM_UNSUPPORTED="mistral_mysql mistral_rtm mistral_postgresql"
+
 for PACKAGE in ${PACKAGES}; do
     PLUGIN_DIRECTORY=$(dirname ${PACKAGE})
     PLUGIN=$(basename ${PLUGIN_DIRECTORY})
     BUILD32="${BUILD32} ${PLUGIN_DIRECTORY}/${PLUGIN}.i386"
     BUILD64="${BUILD64} ${PLUGIN_DIRECTORY}/${PLUGIN}.x86_64"
-    BUILD_ARM64="${BUILD_ARM64} ${PLUGIN_DIRECTORY}/${PLUGIN}.aarch64"
+    if [[ "$ARM_UNSUPPORTED" =~ (^| )$PLUGIN($| ) ]]; then
+        echo "INFO: Skipping aarch64 build of $PLUGIN - not yet supported. PostgreSQL and mysql not installed on build server."
+    else
+        BUILD_ARM64="${BUILD_ARM64} ${PLUGIN_DIRECTORY}/${PLUGIN}.aarch64"
+    fi
 done
 
 # Create another temporary directory where we can store the compiled plugins and
@@ -111,14 +118,14 @@ if [ -z "$MAKE_PACKAGE" ]; then
     MAKE_PACKAGE="package"
 fi
 
-# Build both the 32-bit and 64-bit versions of the plugins on the appropriate
+# Build both the aarch64, 32-bit and 64-bit versions of the plugins on the appropriate
 # build machines.
 
 ARM64_ARGUMENTS="GCC=aarch64-linux-gnu-gcc TGT_ARCH=aarch64"
 
 remote_build ${REMOTE_BUILD_MACHINE_32} ${SOURCE_DIR} ${BUILD_DIR} "make ${MAKE_PACKAGE}" ${BUILD32}
 remote_build ${REMOTE_BUILD_MACHINE_64} ${SOURCE_DIR} ${BUILD_DIR} "make ${MAKE_PACKAGE}" ${BUILD64}
-remote_build ${REMOTE_BUILD_MACHINE_ARM64} ${SOURCE_DIR} ${BUILD_DIR} "make ${ARM64_ARGUMENTS} ${MAKE_PACKAGE}" ${BUILD_ARM64}
+remote_build ${REMOTE_BUILD_MACHINE_ARM64} ${SOURCE_DIR} ${BUILD_DIR} "make ${ARM64_ARGUMENTS} package-aarch64" ${BUILD_ARM64}
 
 DOC_DIR="${SOURCE_DIR}/docs"
 ALL_DOCS=$(make -s -C "${SOURCE_DIR}/docs" echo-all 2>/dev/null)
@@ -127,10 +134,10 @@ remote_build ${REMOTE_BUILD_MACHINE_DOCS} ${DOC_DIR} ${BUILD_DIR} "make pdf" ${A
 # Iterate over all plugins, collecting up the files and creating tar files which
 # can be distributed.
 
+VERSION=$(cat VERSION)
 for PACKAGE in ${PACKAGES}; do
     PLUGIN_SRC=$(dirname ${PACKAGE})
     PLUGIN_NAME=$(basename ${PLUGIN_SRC})
-    VERSION=$(cat ${PLUGIN_SRC}/VERSION)
     PLUGIN_DST=${BUILD_DIR}/${PLUGIN_NAME}_${VERSION}
     mkdir -p ${PLUGIN_DST}
 
