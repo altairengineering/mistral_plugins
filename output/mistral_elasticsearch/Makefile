@@ -13,10 +13,19 @@ $(eval $(call check_arch,$(HOST_ARCH)))
 # Setting TGT_ARCH before this point should allow cross-compiling
 TGT_ARCH := $(HOST_ARCH)
 
-LDLIBS = \
-	$(shell curl-config --static-libs)
+# For the aach64 cross-compiler the curl-config file isn't on the path, and
+# libssl is provided by libressl which doesn't require krb5support or keyutils.
+# Also specify the include location for the header files.
+ifeq (,$(findstring aarch64,$(TGT_ARCH)))
+	LDLIBS = \
+		$(shell curl-config --static-libs)
 
-LDLIBS += -lkrb5support -lkeyutils
+	LDLIBS += -lkrb5support -lkeyutils
+else
+	LDLIBS = \
+		$(shell /usr/aarch64-linux-gnu/bin/curl-config --static-libs)
+	CFLAGS += -I /usr/aarch64-linux-gnu/include
+endif
 
 TARGETS = \
 	$(PLUGIN_NAME)
