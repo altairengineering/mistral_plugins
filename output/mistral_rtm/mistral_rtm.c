@@ -739,7 +739,7 @@ static void get_lsf_hostname(void)
     char env_hostname[STRING_SIZE];
     char *temp_hostname = getenv("HOSTNAME");
     if (temp_hostname) {
-        strncpy(env_hostname, temp_hostname, STRING_SIZE - 1);
+        strncpy(env_hostname, temp_hostname, STRING_SIZE);
         env_hostname[STRING_SIZE - 1] = '\0';
     } else {
         env_hostname[0] = '\0';
@@ -804,7 +804,7 @@ static void get_lsf_hostname(void)
         char *p = NULL;
         for (size_t i = 0; host_arr[i]; i++) {
             if (!strcmp(host_arr[i], env_hostname)) {
-                strncpy(hostname, env_hostname, STRING_SIZE - 1);
+                strncpy(hostname, env_hostname, STRING_SIZE);
                 hostname[STRING_SIZE - 1] = '\0';
                 break;
             }
@@ -817,7 +817,7 @@ static void get_lsf_hostname(void)
 
                 for (size_t i = 0; host_arr[i]; i++) {
                     if (!strcmp(host_arr[i], env_hostname)) {
-                        strncpy(hostname, env_hostname, STRING_SIZE - 1);
+                        strncpy(hostname, env_hostname, STRING_SIZE);
                         hostname[STRING_SIZE - 1] = '\0';
                         break;
                     }
@@ -828,7 +828,7 @@ static void get_lsf_hostname(void)
         if (hostname[0] == '\0') {
             for (size_t i = 0; host_arr[i]; i++) {
                 if (!strcmp(host_arr[i], dns_hostname)) {
-                    strncpy(hostname, dns_hostname, STRING_SIZE - 1);
+                    strncpy(hostname, dns_hostname, STRING_SIZE);
                     hostname[STRING_SIZE - 1] = '\0';
                     break;
                 }
@@ -842,7 +842,7 @@ static void get_lsf_hostname(void)
 
                 for (size_t i = 0; host_arr[i]; i++) {
                     if (!strcmp(host_arr[i], dns_hostname)) {
-                        strncpy(hostname, dns_hostname, STRING_SIZE - 1);
+                        strncpy(hostname, dns_hostname, STRING_SIZE);
                         hostname[STRING_SIZE - 1] = '\0';
                         break;
                     }
@@ -851,7 +851,7 @@ static void get_lsf_hostname(void)
         }
 
         if (hostname[0] == '\0' && host_arr[0]) {
-            strncpy(hostname, host_arr[0], STRING_SIZE - 1);
+            strncpy(hostname, host_arr[0], STRING_SIZE);
             hostname[STRING_SIZE - 1] = '\0';
         }
 
@@ -868,7 +868,7 @@ static void get_lsf_hostname(void)
         if (p) {
             *p = '\0';
         }
-        strncpy(hostname, env_hostname, STRING_SIZE - 1);
+        strncpy(hostname, env_hostname, STRING_SIZE);
         hostname[STRING_SIZE - 1] = '\0';
 
         if (hostname[0] == '\0') {
@@ -876,12 +876,12 @@ static void get_lsf_hostname(void)
             if (p) {
                 *p = '\0';
             }
-            strncpy(hostname, dns_hostname, STRING_SIZE - 1);
+            strncpy(hostname, dns_hostname, STRING_SIZE);
             hostname[STRING_SIZE - 1] = '\0';
         }
 
         if (hostname[0] == '\0') {
-            strncpy(hostname, "localhost", STRING_SIZE - 1);
+            strncpy(hostname, "localhost", STRING_SIZE);
             hostname[STRING_SIZE - 1] = '\0';
         }
     }

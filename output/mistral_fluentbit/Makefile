@@ -13,13 +13,13 @@ $(eval $(call check_arch,$(HOST_ARCH)))
 # Setting TGT_ARCH before this point should allow cross-compiling
 TGT_ARCH := $(HOST_ARCH)
 
-LDLIBS =
+LDLIBS = -lpthread
 
 TARGETS = \
 	$(PLUGIN_NAME)
 
 PACKAGE = \
-	$(PLUGIN_NAME).$(HOST_ARCH)
+	$(PLUGIN_NAME).$(TGT_ARCH)
 
 PLUGIN_FRAMEWORK_DIR = \
 	../../common

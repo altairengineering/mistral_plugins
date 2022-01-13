@@ -49,12 +49,12 @@ package:
 	$(MAKE) -C common
 	$(MAKE) -C output/mistral_elasticsearch package
 	$(MAKE) -C output/mistral_graphite package
-	$(MAKE) -C output/mistral_mysql package
 	$(MAKE) -C output/mistral_influxdb package
-	$(MAKE) -C output/mistral_postgresql package
-	$(MAKE) -C output/mistral_rtm package
 	$(MAKE) -C output/mistral_splunk package
 	$(MAKE) -C output/mistral_fluentbit package
+#	$(MAKE) -C output/mistral_mysql package
+#	$(MAKE) -C output/mistral_postgresql package
+#	$(MAKE) -C output/mistral_rtm package
 
 .PHONY: clean
 clean:
