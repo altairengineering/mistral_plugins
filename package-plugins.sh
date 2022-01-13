@@ -13,6 +13,7 @@ set -e
 
 REMOTE_BUILD_MACHINE_32=ellexus@10.33.0.103
 REMOTE_BUILD_MACHINE_64=ellexus@10.33.0.104
+REMOTE_BUILD_MACHINE_ARM64=ellexus@10.33.0.110
 REMOTE_BUILD_MACHINE_DOCS=ellexus@build-doc
 
 
@@ -86,16 +87,18 @@ if [ -z "$PACKAGES" ]; then
 fi
 
 # Construct lists of the plugins to be built. The plugin takes its name from the
-# directory with ".i386" appended for 32-bit builds and ".x86_64" for 64-bit
-# builds.
+# directory with ".i386" appended for 32-bit builds, ".x86_64" for 64-bit
+# builds and ".aarch64" for 64-bit ARM builds.
 
 BUILD32=""
 BUILD64=""
+BUILD_ARM64=""
 for PACKAGE in ${PACKAGES}; do
     PLUGIN_DIRECTORY=$(dirname ${PACKAGE})
     PLUGIN=$(basename ${PLUGIN_DIRECTORY})
     BUILD32="${BUILD32} ${PLUGIN_DIRECTORY}/${PLUGIN}.i386"
     BUILD64="${BUILD64} ${PLUGIN_DIRECTORY}/${PLUGIN}.x86_64"
+    BUILD_ARM64="${BUILD_ARM64} ${PLUGIN_DIRECTORY}/${PLUGIN}.aarch64"
 done
 
 # Create another temporary directory where we can store the compiled plugins and
@@ -113,6 +116,7 @@ fi
 
 remote_build ${REMOTE_BUILD_MACHINE_32} ${SOURCE_DIR} ${BUILD_DIR} "make ${MAKE_PACKAGE}" ${BUILD32}
 remote_build ${REMOTE_BUILD_MACHINE_64} ${SOURCE_DIR} ${BUILD_DIR} "make ${MAKE_PACKAGE}" ${BUILD64}
+remote_build ${REMOTE_BUILD_MACHINE_ARM64} ${SOURCE_DIR} ${BUILD_DIR} "make ${MAKE_PACKAGE}" ${BUILD_ARM64}
 
 DOC_DIR="${SOURCE_DIR}/docs"
 ALL_DOCS=$(make -s -C "${SOURCE_DIR}/docs" echo-all 2>/dev/null)

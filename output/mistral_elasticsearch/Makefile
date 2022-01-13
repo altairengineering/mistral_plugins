@@ -10,6 +10,9 @@ PLUGIN_NAME = mistral_elasticsearch
 HOST_ARCH := $(patsubst i%86,i386,$(shell uname -m))
 $(eval $(call check_arch,$(HOST_ARCH)))
 
+# Setting TGT_ARCH before this point should allow cross-compiling
+TGT_ARCH := $(HOST_ARCH)
+
 LDLIBS = \
 	$(shell curl-config --static-libs)
 
@@ -19,7 +22,7 @@ TARGETS = \
 	$(PLUGIN_NAME)
 
 PACKAGE = \
-	$(PLUGIN_NAME).$(HOST_ARCH)
+	$(PLUGIN_NAME).$(TGT_ARCH)
 
 PLUGIN_FRAMEWORK_DIR = \
 	../../common
@@ -109,6 +112,6 @@ $(PLUGIN_NAME).o: $(STANDARD_DEPS) $(PLUGIN_DEPS)
 # have all the necessary static libraries installed, but the libraries may not
 # be installed on other machines.)
 
-$(PLUGIN_NAME).$(HOST_ARCH) : $(PLUGIN_NAME) $(STANDARD_OBJECTS) $(PLUGIN_OBJECTS)
+$(PLUGIN_NAME).$(TGT_ARCH) : $(PLUGIN_NAME) $(STANDARD_OBJECTS) $(PLUGIN_OBJECTS)
 	$(GCC) -o $@ $(STANDARD_OBJECTS) $(PLUGIN_OBJECTS) \
 		$(shell ../../tools/static-link.sh $(PLUGIN_NAME) $(LDLIBS))
