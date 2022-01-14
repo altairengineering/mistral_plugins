@@ -113,19 +113,21 @@ done
 
 BUILD_DIR=$(mktemp -d)
 
-
+# Allow setting of the package(s) that are being built, so that plugins can be
+# packaged individually.
 if [ -z "$MAKE_PACKAGE" ]; then
     MAKE_PACKAGE="package"
+fi
+if [ -z "$MAKE_ARM_PACKAGE" ]; then
+    MAKE_ARM_PACKAGE="package-aarch64"
 fi
 
 # Build both the aarch64, 32-bit and 64-bit versions of the plugins on the appropriate
 # build machines.
 
-ARM64_ARGUMENTS="GCC=aarch64-linux-gnu-gcc TGT_ARCH=aarch64"
-
 remote_build ${REMOTE_BUILD_MACHINE_32} ${SOURCE_DIR} ${BUILD_DIR} "make ${MAKE_PACKAGE}" ${BUILD32}
 remote_build ${REMOTE_BUILD_MACHINE_64} ${SOURCE_DIR} ${BUILD_DIR} "make ${MAKE_PACKAGE}" ${BUILD64}
-remote_build ${REMOTE_BUILD_MACHINE_ARM64} ${SOURCE_DIR} ${BUILD_DIR} "make ${ARM64_ARGUMENTS} package-aarch64" ${BUILD_ARM64}
+remote_build ${REMOTE_BUILD_MACHINE_ARM64} ${SOURCE_DIR} ${BUILD_DIR} "make ${MAKE_ARM_PACKAGE}" ${BUILD_ARM64}
 
 DOC_DIR="${SOURCE_DIR}/docs"
 ALL_DOCS=$(make -s -C "${SOURCE_DIR}/docs" echo-all 2>/dev/null)

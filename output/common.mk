@@ -1,3 +1,4 @@
+# Common Makefile for building output plug-ins
 # ------------------------------------------------------------------------------
 # HOST_ARCH -- Native architecture, normalized to elide i386/i686
 # distinction.
@@ -12,41 +13,30 @@ ifeq (1, $(INCLUDE_CURL))
 # For the aach64 cross-compiler the curl-config file isn't on the path, and
 # libssl is provided by libressl which doesn't require krb5support or keyutils.
 # Also specify the include location for the header files.
-ifeq (,$(findstring aarch64,$(TGT_ARCH)))
-	LDLIBS += \
-		$(shell curl-config --static-libs)
-
-	LDLIBS += -lkrb5support -lkeyutils
-else
-	LDLIBS += \
-		$(shell /usr/aarch64-linux-gnu/bin/curl-config --static-libs)
+ifeq (aarch64, $(TGT_ARCH))
+	LDLIBS += $(shell /usr/aarch64-linux-gnu/bin/curl-config --static-libs)
 	CFLAGS += -I /usr/aarch64-linux-gnu/include
+else
+	LDLIBS += $(shell curl-config --static-libs)
+	LDLIBS += -lkrb5support -lkeyutils
 endif
 endif
 
-TARGETS = \
-	$(PLUGIN_NAME)
+TARGETS = $(PLUGIN_NAME)
 
-PACKAGE = \
-	$(PLUGIN_NAME).$(TGT_ARCH)
+PACKAGE = $(PLUGIN_NAME).$(TGT_ARCH)
 
-PLUGIN_FRAMEWORK_DIR = \
-	../../common
+PLUGIN_FRAMEWORK_DIR = ../../common
 
-STANDARD_OBJECTS = \
-	$(PLUGIN_FRAMEWORK_DIR)/plugin_control.o
+STANDARD_OBJECTS = $(PLUGIN_FRAMEWORK_DIR)/plugin_control.o
 
-PLUGIN_OBJECTS += \
-	$(PLUGIN_NAME).o
+PLUGIN_OBJECTS += $(PLUGIN_NAME).o
 
-PLUGIN_DEPS += \
-	$(PLUGIN_NAME).c
+PLUGIN_DEPS += $(PLUGIN_NAME).c
 
-DIRECTORIES = \
-	$(PLUGIN_FRAMEWORK_DIR)
+DIRECTORIES = $(PLUGIN_FRAMEWORK_DIR)
 
-CLEANDIRECTORIES = \
-	$(addsuffix PHONYclean,$(DIRECTORIES))
+CLEANDIRECTORIES = $(addsuffix PHONYclean,$(DIRECTORIES))
 
 .PHONY: all
 all: dirs $(TARGETS)
