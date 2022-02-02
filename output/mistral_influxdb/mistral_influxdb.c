@@ -42,6 +42,7 @@ static char *auth = NULL;
 static mistral_log *log_list_head = NULL;
 static mistral_log *log_list_tail = NULL;
 static char *custom_variables = NULL;
+static bool job_as_field = false;
 
 /*
  * set_curl_option
@@ -122,6 +123,10 @@ static void usage(const char *name)
                 "  -h hostname\n"
                 "     The hostname of the InfluxDB server with which to establish a connection.\n"
                 "     If not specified the plug-in will default to \"localhost\".\n"
+                "\n"
+                "  --job-as-field\n"
+                "  -j \n"
+                "     Output Job ID and Job group as a field, rather than a tag.\n"
                 "\n"
                 "  --mode=octal-mode\n"
                 "  -m octal-mode\n"
@@ -287,6 +292,7 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
         {"debug", required_argument, NULL, 'D'},
         {"error", required_argument, NULL, 'e'},
         {"host", required_argument, NULL, 'h'},
+        {"job-as-field", no_argument, NULL, 'j'},
         {"mode", required_argument, NULL, 'm'},
         {"password", required_argument, NULL, 'p'},
         {"port", required_argument, NULL, 'P'},
@@ -312,7 +318,7 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
     const char *cert_path = NULL;
     const char *cert_dir = NULL;
 
-    while ((opt = getopt_long(argc, argv, "d:D:e:h:m:p:P:sku:v:c:", options, NULL)) != -1) {
+    while ((opt = getopt_long(argc, argv, "d:D:e:h:j:m:p:P:sku:v:c:", options, NULL)) != -1) {
         switch (opt) {
         case 'd':
             database = optarg;
@@ -333,6 +339,9 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
             break;
         case 'h':
             host = optarg;
+            break;
+        case 'j':
+            job_as_field = true;
             break;
         case 'm': {
             char *end = NULL;
@@ -653,52 +662,105 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
          * size-max value 9223372036854775807, InfluxDB stores it as 9.223372036854776e+18 and
          * returns 9223372036854776000.
          */
-        if (asprintf(&new_data,
-                     "%s%s%s,calltype=%s,jobgroup=%s,jobid=%s,label=%s,path=\"%s\","
-                     "fstype=\"%s\",fsname=\"%s\",fshost=\"%s\",host=%s%s"
-                     " command=\"%s\",cpu=%" PRIu32 "i,file=\"%s\",logtype=\"%s\""
-                     ",mpirank=%" PRId32 "i,pid=%" PRId64 "i,scope=\"%s\""
-                     ",sizemin=%" PRIu64 "i,sizemax=%" PRIu64 "i,threshold=%" PRIu64
-                     "i,timeframe=%" PRIu64 "i,value=%"
-                     PRIu64 " %ld%06" PRIu32,
-                     (data) ? data : "", (data) ? "\n" : "",
-                     mistral_measurement_name[log_entry->measurement],
-                     log_entry->call_type_names,
-                     job_gid,
-                     job_id,
-                     log_entry->label,
-                     path,
-                     fstype,
-                     fsname,
-                     fshost,
-                     log_entry->hostname,
-                     (custom_variables) ? custom_variables : "",
-                     command,
-                     log_entry->cpu,
-                     file,
-                     mistral_contract_name[log_entry->contract_type],
-                     log_entry->mpi_rank,
-                     log_entry->pid,
-                     mistral_scope_name[log_entry->scope],
-                     log_entry->size_min,
-                     log_entry->size_max,
-                     log_entry->threshold,
-                     log_entry->timeframe,
-                     log_entry->measured,
-                     log_entry->epoch.tv_sec,
-                     log_entry->microseconds) < 0)
-        {
-            mistral_err("Could not allocate memory for log entry\n");
-            free(data);
-            free(fshost);
-            free(fsname);
-            free(fstype);
-            free(file);
-            free(command);
-            mistral_shutdown();
-            DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, failed\n");
-            return;
+        if (job_as_field) {
+            if (asprintf(&new_data,
+                "%s%s%s,calltype=%s,"
+                "label=%s,path=\"%s\","
+                "fstype=\"%s\",fsname=\"%s\",fshost=\"%s\",host=%s%s"
+                " jobgroup=\"%s\",jobid=\"%s\",command=\"%s\",cpu=%" PRIu32 "i,file=\"%s\",logtype=\"%s\""
+                ",mpirank=%" PRId32 "i,pid=%" PRId64 "i,scope=\"%s\""
+                ",sizemin=%" PRIu64 "i,sizemax=%" PRIu64 "i,threshold=%" PRIu64
+                "i,timeframe=%" PRIu64 "i,value=%"
+                PRIu64 " %ld%06" PRIu32,
+                (data) ? data : "", (data) ? "\n" : "",
+                mistral_measurement_name[log_entry->measurement],
+                log_entry->call_type_names,
+                log_entry->label,
+                path,
+                fstype,
+                fsname,
+                fshost,
+                log_entry->hostname,
+                (custom_variables) ? custom_variables : "",
+                job_gid,
+                job_id,
+                command,
+                log_entry->cpu,
+                file,
+                mistral_contract_name[log_entry->contract_type],
+                log_entry->mpi_rank,
+                log_entry->pid,
+                mistral_scope_name[log_entry->scope],
+                log_entry->size_min,
+                log_entry->size_max,
+                log_entry->threshold,
+                log_entry->timeframe,
+                log_entry->measured,
+                log_entry->epoch.tv_sec,
+                log_entry->microseconds) < 0)
+            {
+                mistral_err("Could not allocate memory for log entry\n");
+                free(data);
+                free(fshost);
+                free(fsname);
+                free(fstype);
+                free(file);
+                free(command);
+                mistral_shutdown();
+                DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, failed\n");
+                return;
+            }
+        } else {
+            if (asprintf(&new_data,
+                "%s%s%s,calltype=%s,"
+                "jobgroup=%s,jobid=%s,"
+                "label=%s,path=\"%s\","
+                "fstype=\"%s\",fsname=\"%s\",fshost=\"%s\",host=%s%s"
+                " command=\"%s\",cpu=%" PRIu32 "i,file=\"%s\",logtype=\"%s\""
+                ",mpirank=%" PRId32 "i,pid=%" PRId64 "i,scope=\"%s\""
+                ",sizemin=%" PRIu64 "i,sizemax=%" PRIu64 "i,threshold=%" PRIu64
+                "i,timeframe=%" PRIu64 "i,value=%"
+                PRIu64 " %ld%06" PRIu32,
+                (data) ? data : "", (data) ? "\n" : "",
+                mistral_measurement_name[log_entry->measurement],
+                log_entry->call_type_names,
+                job_gid,
+                job_id,
+                log_entry->label,
+                path,
+                fstype,
+                fsname,
+                fshost,
+                log_entry->hostname,
+                (custom_variables) ? custom_variables : "",
+                command,
+                log_entry->cpu,
+                file,
+                mistral_contract_name[log_entry->contract_type],
+                log_entry->mpi_rank,
+                log_entry->pid,
+                mistral_scope_name[log_entry->scope],
+                log_entry->size_min,
+                log_entry->size_max,
+                log_entry->threshold,
+                log_entry->timeframe,
+                log_entry->measured,
+                log_entry->epoch.tv_sec,
+                log_entry->microseconds) < 0)
+            {
+                mistral_err("Could not allocate memory for log entry\n");
+                free(data);
+                free(fshost);
+                free(fsname);
+                free(fstype);
+                free(file);
+                free(command);
+                mistral_shutdown();
+                DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, failed\n");
+                return;
+            }
         }
+        
         free(data);
         free(fshost);
         free(fsname);
