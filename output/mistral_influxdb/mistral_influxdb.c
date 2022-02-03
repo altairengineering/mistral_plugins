@@ -605,6 +605,8 @@ void mistral_received_log(mistral_log *log_entry)
     DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, success\n");
 }
 
+/* The different kinds of field we send to InfluxDB */
+
 enum {
     FIELD_KIND_LITERAL, /* use the source as is */
     FIELD_KIND_ESCAPE, /* apply influxdb_escape_field to the source */
@@ -613,6 +615,9 @@ enum {
     FIELD_KIND_U64, /* uint64_t */
     FIELD_KIND_S64, /* int64_t */
 };
+
+/* All the different fields we send to InfluxDB, in no particular order,
+ * with initializers. */
 
 #define FIELDS(X)                                                                                  \
     X(CALLTYPE, "calltype", LITERAL, log_entry->call_type_names)                                   \
@@ -637,20 +642,24 @@ enum {
     X(TIMEFRAME, "timeframe", U64, &log_entry->timeframe)                                          \
     X(VALUE, "value", U64, &log_entry->measured)
 
+/* An enum of the various field IDs, with names like FIELD_SPONG */
+
 #define FIELD_ID(id, name, kind, source) FIELD_ ## id,
 enum {
     FIELDS(FIELD_ID)
     FIELD_ID_MAX
 };
 
+/* A structure describing a single field. */
+
 #define INLINE_FIELD_SIZE (sizeof("18446744073709551615i"))
 
 struct field {
-    const char *name;
-    int kind;
-    void *source;
-    char *value;
-    char buf[INLINE_FIELD_SIZE];
+    const char *name;            /* field name as known to InfluxDB */
+    int kind;                    /* one of the FIELD_KIND_ enum values */
+    void *source;                /* a pointer to the "source" value */
+    char *value;                 /* as a prepared string to send to InfluxDB */
+    char buf[INLINE_FIELD_SIZE]; /* A small inline buffer for integral kinds */
 };
 
 /*
@@ -695,6 +704,8 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
             {name, FIELD_KIND_ ## kind, (void*)(source), NULL, {0}},
             FIELDS(FIELD_STRUCT)
         };
+
+        /* Prepare all the fields for transmission to InfluxDB. */
 
         /* InfluxDB tags are always strings. They are indexed and stored in memory. Our current
          * tags are measurement type, call type, job group ID, job ID, label and hostname. None
@@ -750,6 +761,7 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
         int *field_set;
 
         if (job_as_field) {
+            /* Job ID and group ID are fields */
             static int tag_ids[] = {FIELD_CALLTYPE, FIELD_LABEL, FIELD_PATH,
                                     FIELD_FSTYPE, FIELD_FSNAME, FIELD_FSHOST,
                                     FIELD_HOST, FIELD_ID_MAX};
@@ -761,6 +773,7 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
                                       FIELD_TIMEFRAME, FIELD_VALUE, FIELD_ID_MAX};
             field_set = field_ids;
         } else {
+            /* Job ID and group ID are tags */
             static int tag_ids[] = {FIELD_CALLTYPE,
                                     FIELD_JOBGROUP, FIELD_JOBID,
                                     FIELD_LABEL, FIELD_PATH,
@@ -775,39 +788,45 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
             field_set = field_ids;
         }
 
-        failed |= (fputs(mistral_measurement_name[log_entry->measurement], post_fields) < 0);
-
-        int *tag_p = tag_set;
-        while (*tag_p != FIELD_ID_MAX) {
-            failed |= (putc(',', post_fields) < 0);
-            failed |= (fprintf(post_fields, "%s=\"%s\"", fields[*tag_p].name,
-                               fields[*tag_p].value) < 0);
-            ++tag_p;
-        }
-
-        if (custom_variables) {
-            failed |= (fputs(custom_variables, post_fields) < 0);
-        }
-        failed |= (putc(' ', post_fields) < 0);
-
-        int *field_p = field_set;
-        while (*field_p != FIELD_ID_MAX) {
-            failed |= (fprintf(post_fields, "%s=", fields[*tag_p].name) < 0);
-            int kind = fields[*field_p].kind;
-            if (kind == FIELD_KIND_LITERAL || kind == FIELD_KIND_ESCAPE) {
-                failed |= (putc('\"', post_fields) < 0);
-            }
-            failed |= (fputs(fields[*tag_p].value, post_fields) < 0);
-            ++field_p;
-            if (*field_p != FIELD_ID_MAX) {
-                failed |= (putc(',', post_fields) < 0);
-            }
-        }
-
-        failed |= (fprintf(post_fields, "%ld%06" PRIu32 "\n",
-                           log_entry->epoch.tv_sec, log_entry->microseconds) < 0);
-
-        /* free allocated field values - the FIELD_KIND_ESCAPE ones */
+        /* Each line of the post fields is of the form:
+         * <measurement name>,<tags><custom_variables> <fields> <timestamp>
+         *
+         * failed |= (fputs(mistral_measurement_name[log_entry->measurement], post_fields) < 0);
+         *
+         * int *tag_p = tag_set;
+         * while (*tag_p != FIELD_ID_MAX) {
+         *  failed |= (putc(',', post_fields) < 0);
+         *  failed |= (fprintf(post_fields, "%s=\"%s\"", fields[*tag_p].name,
+         *                     fields[*tag_p].value) < 0);
+         ++tag_p;
+         * }
+         *
+         * if (custom_variables) {
+         *  failed |= (fputs(custom_variables, post_fields) < 0);
+         * }
+         * failed |= (putc(' ', post_fields) < 0);
+         *
+         * int *field_p = field_set;
+         * while (*field_p != FIELD_ID_MAX) {
+         *  failed |= (fprintf(post_fields, "%s=", fields[*tag_p].name) < 0);
+         *  int kind = fields[*field_p].kind;
+         *  if (kind == FIELD_KIND_LITERAL || kind == FIELD_KIND_ESCAPE) {
+         *      failed |= (putc('\"', post_fields) < 0);
+         *  }
+         *  failed |= (fputs(fields[*tag_p].value, post_fields) < 0);
+         *  if (kind == FIELD_KIND_LITERAL || kind == FIELD_KIND_ESCAPE) {
+         *      failed |= (putc('\"', post_fields) < 0);
+         *  }
+         ++field_p;
+         *  if (*field_p != FIELD_ID_MAX) {
+         *      failed |= (putc(',', post_fields) < 0);
+         *  }
+         * }
+         *
+         * failed |= (fprintf(post_fields, "%ld%06" PRIu32 "\n",
+         *                 log_entry->epoch.tv_sec, log_entry->microseconds) < 0);
+         *
+         * /* free allocated field values - the FIELD_KIND_ESCAPE ones */
         for (i = 0; i < sizeof(fields) / sizeof(fields[0]); ++i) {
             if (fields[i].value &&
                 (fields[i].kind == FIELD_KIND_ESCAPE))
