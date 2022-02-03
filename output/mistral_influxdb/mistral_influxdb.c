@@ -682,13 +682,9 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
     UNUSED(block_num);
     UNUSED(block_error);
 
-    char *data = NULL;
-
     mistral_log *log_entry = log_list_head;
-
     char *post_field_buf = NULL;
     size_t post_field_size = 0;
-
     FILE *post_fields = open_memstream(&post_field_buf, &post_field_size);
 
     bool failed = (post_fields == NULL);
@@ -836,10 +832,11 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
         return;
     }
 
-    if (!failed && post_field_buf) {
+    if (post_field_buf) {
         if (!set_curl_option(CURLOPT_POSTFIELDS, post_field_buf)) {
             mistral_shutdown();
             DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, failed\n");
+            free(post_field_buf);
             return;
         }
 
@@ -855,7 +852,7 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
             DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, failed\n");
         }
     }
-    free(data);
+    free(post_field_buf);
     DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, success\n");
 }
 
