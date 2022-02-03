@@ -720,25 +720,25 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
                 failed |= (!fields[i].value);
                 break;
             case FIELD_KIND_U32:
-                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, PRIu32 "i",
+                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, "%" PRIu32 "i",
                              *(uint32_t *)fields[i].source);
                 failed |= (n >= (int)INLINE_FIELD_SIZE);
                 fields[i].value = fields[i].buf;
                 break;
             case FIELD_KIND_S32:
-                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, PRId32 "i",
+                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, "%" PRId32 "i",
                              *(int32_t *)fields[i].source);
                 failed |= (n >= (int)INLINE_FIELD_SIZE);
                 fields[i].value = fields[i].buf;
                 break;
             case FIELD_KIND_U64:
-                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, PRIu64 "i",
+                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, "%" PRIu64 "i",
                              *(uint64_t *)fields[i].source);
                 failed |= (n >= (int)INLINE_FIELD_SIZE);
                 fields[i].value = fields[i].buf;
                 break;
             case FIELD_KIND_S64:
-                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, PRId64 "i",
+                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, "%" PRId64 "i",
                              *(int64_t *)fields[i].source);
                 failed |= (n >= (int)INLINE_FIELD_SIZE);
                 fields[i].value = fields[i].buf;
