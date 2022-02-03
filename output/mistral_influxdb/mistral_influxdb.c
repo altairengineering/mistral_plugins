@@ -95,7 +95,7 @@ static void usage(const char *name)
     mistral_err("Usage:\n");
     mistral_err(
         "  %s [-d database] [-h host] [-P port] [-e file] [-m octal-mode] [-u user] [-p password] [-s] [-v var-name ...]\n"
-             "[-k] [-c certificate_path] [--cert-dir=certificate_directory]\n", name);
+        "[-k] [-c certificate_path] [--cert-dir=certificate_directory]\n", name);
     mistral_err("\n"
                 "  --cert-path=certificate_path\n"
                 "  -c certificate_path\n"
@@ -301,7 +301,7 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
         {"username", required_argument, NULL, 'u'},
         {"var", required_argument, NULL, 'v'},
         {"cert-dir", required_argument, NULL, CERT_DIR_OPTION_CODE},
-        {"cert-path", required_argument, NULL, 'c'},        
+        {"cert-path", required_argument, NULL, 'c'},
         {0, 0, 0, 0},
     };
 
@@ -491,7 +491,7 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
             mistral_err("Could not set curl certificate directory (CAPATH) '%s'\n", cert_dir);
             return;
         }
-    }    
+    }
 
     /* Set InfluxDB connection options and set precision to microseconds as this
      * is what we see in logs
@@ -605,6 +605,54 @@ void mistral_received_log(mistral_log *log_entry)
     DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, success\n");
 }
 
+enum {
+    FIELD_KIND_LITERAL, /* use the source as is */
+    FIELD_KIND_ESCAPE, /* apply influxdb_escape_field to the source */
+    FIELD_KIND_U32, /* Convert the uint32_t of the source to a string */
+    FIELD_KIND_S32, /* int32_t */
+    FIELD_KIND_U64, /* uint64_t */
+    FIELD_KIND_S64, /* int64_t */
+};
+
+#define FIELDS(X)                                                                                  \
+    X(CALLTYPE, "calltype", LITERAL, log_entry->call_type_names)                                   \
+    X(COMMAND, "command", ESCAPE, log_entry->command)                                              \
+    X(CPU, "cpu", U32, &log_entry->cpu)                                                            \
+    X(FILE, "file", ESCAPE, log_entry->file)                                                       \
+    X(FSHOST, "fshost", ESCAPE, log_entry->fshost)                                                 \
+    X(FSNAME, "fsname", ESCAPE, log_entry->fsname)                                                 \
+    X(FSTYPE, "fstype", ESCAPE, log_entry->fstype)                                                 \
+    X(HOST, "host", LITERAL, log_entry->hostname)                                                  \
+    X(JOBGROUP, "jobgroup", LITERAL, log_entry->job_group_id[0] ? log_entry->job_group_id : "N/A") \
+    X(JOBID, "jobid", LITERAL, log_entry->job_id[0] ? log_entry->job_id : "N/A")                   \
+    X(LABEL, "label", LITERAL, log_entry->label)                                                   \
+    X(LOGTYPE, "logtype", LITERAL, mistral_contract_name[log_entry->contract_type])                \
+    X(MPIRANK, "mpirank", S32, &log_entry->mpi_rank)                                               \
+    X(PATH, "path", ESCAPE, log_entry->path)                                                       \
+    X(PID, "pid", S64, &log_entry->pid)                                                            \
+    X(SCOPE, "scope", LITERAL, mistral_scope_name[log_entry->scope])                               \
+    X(SIZEMAX, "sizemax", S64, &log_entry->size_max)                                               \
+    X(SIZEMIN, "sizemin", S64, &log_entry->size_min)                                               \
+    X(THRESHOLD, "threshold", U64, &log_entry->threshold)                                          \
+    X(TIMEFRAME, "timeframe", U64, &log_entry->timeframe)                                          \
+    X(VALUE, "value", U64, &log_entry->measured)
+
+#define FIELD_ID(id, name, kind, source) FIELD_ ## id,
+enum {
+    FIELDS(FIELD_ID)
+    FIELD_ID_MAX
+};
+
+#define INLINE_FIELD_SIZE (sizeof("18446744073709551615i"))
+
+struct field {
+    const char *name;
+    int kind;
+    void *source;
+    char *value;
+    char buf[INLINE_FIELD_SIZE];
+};
+
 /*
  * mistral_received_data_end
  *
@@ -638,17 +686,19 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
 
     mistral_log *log_entry = log_list_head;
 
+    char *post_field_buf = NULL;
+    size_t post_field_size = 0;
+
+    FILE *post_fields = open_memstream(&post_field_buf, &post_field_size);
+
+    bool failed = (post_fields == NULL);
+
     while (log_entry) {
-        /* Double quotes must must be escaped in the field strings. */
-        char *command = influxdb_escape_field(log_entry->command);
-        char *file = influxdb_escape_field(log_entry->file);
-        char *path = influxdb_escape_field(log_entry->path);
-        char *fstype = influxdb_escape_field(log_entry->fstype);
-        char *fsname = influxdb_escape_field(log_entry->fsname);
-        char *fshost = influxdb_escape_field(log_entry->fshost);
-        const char *job_gid = (log_entry->job_group_id[0] == 0) ? "N/A" : log_entry->job_group_id;
-        const char *job_id = (log_entry->job_id[0] == 0) ? "N/A" : log_entry->job_id;
-        char *new_data = NULL;
+        struct field fields[] = {
+            #define FIELD_STRUCT(id, name, kind, source) \
+            {name, FIELD_KIND_ ## kind, (void*)(source), NULL, {0}},
+            FIELDS(FIELD_STRUCT)
+        };
 
         /* InfluxDB tags are always strings. They are indexed and stored in memory. Our current
          * tags are measurement type, call type, job group ID, job ID, label and hostname. None
@@ -662,112 +712,114 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
          * size-max value 9223372036854775807, InfluxDB stores it as 9.223372036854776e+18 and
          * returns 9223372036854776000.
          */
-        if (job_as_field) {
-            if (asprintf(&new_data,
-                "%s%s%s,calltype=%s,"
-                "label=%s,path=\"%s\","
-                "fstype=\"%s\",fsname=\"%s\",fshost=\"%s\",host=%s%s"
-                " jobgroup=\"%s\",jobid=\"%s\",command=\"%s\",cpu=%" PRIu32 "i,file=\"%s\",logtype=\"%s\""
-                ",mpirank=%" PRId32 "i,pid=%" PRId64 "i,scope=\"%s\""
-                ",sizemin=%" PRIu64 "i,sizemax=%" PRIu64 "i,threshold=%" PRIu64
-                "i,timeframe=%" PRIu64 "i,value=%"
-                PRIu64 " %ld%06" PRIu32,
-                (data) ? data : "", (data) ? "\n" : "",
-                mistral_measurement_name[log_entry->measurement],
-                log_entry->call_type_names,
-                log_entry->label,
-                path,
-                fstype,
-                fsname,
-                fshost,
-                log_entry->hostname,
-                (custom_variables) ? custom_variables : "",
-                job_gid,
-                job_id,
-                command,
-                log_entry->cpu,
-                file,
-                mistral_contract_name[log_entry->contract_type],
-                log_entry->mpi_rank,
-                log_entry->pid,
-                mistral_scope_name[log_entry->scope],
-                log_entry->size_min,
-                log_entry->size_max,
-                log_entry->threshold,
-                log_entry->timeframe,
-                log_entry->measured,
-                log_entry->epoch.tv_sec,
-                log_entry->microseconds) < 0)
-            {
-                mistral_err("Could not allocate memory for log entry\n");
-                free(data);
-                free(fshost);
-                free(fsname);
-                free(fstype);
-                free(file);
-                free(command);
-                mistral_shutdown();
-                DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, failed\n");
-                return;
-            }
-        } else {
-            if (asprintf(&new_data,
-                "%s%s%s,calltype=%s,"
-                "jobgroup=%s,jobid=%s,"
-                "label=%s,path=\"%s\","
-                "fstype=\"%s\",fsname=\"%s\",fshost=\"%s\",host=%s%s"
-                " command=\"%s\",cpu=%" PRIu32 "i,file=\"%s\",logtype=\"%s\""
-                ",mpirank=%" PRId32 "i,pid=%" PRId64 "i,scope=\"%s\""
-                ",sizemin=%" PRIu64 "i,sizemax=%" PRIu64 "i,threshold=%" PRIu64
-                "i,timeframe=%" PRIu64 "i,value=%"
-                PRIu64 " %ld%06" PRIu32,
-                (data) ? data : "", (data) ? "\n" : "",
-                mistral_measurement_name[log_entry->measurement],
-                log_entry->call_type_names,
-                job_gid,
-                job_id,
-                log_entry->label,
-                path,
-                fstype,
-                fsname,
-                fshost,
-                log_entry->hostname,
-                (custom_variables) ? custom_variables : "",
-                command,
-                log_entry->cpu,
-                file,
-                mistral_contract_name[log_entry->contract_type],
-                log_entry->mpi_rank,
-                log_entry->pid,
-                mistral_scope_name[log_entry->scope],
-                log_entry->size_min,
-                log_entry->size_max,
-                log_entry->threshold,
-                log_entry->timeframe,
-                log_entry->measured,
-                log_entry->epoch.tv_sec,
-                log_entry->microseconds) < 0)
-            {
-                mistral_err("Could not allocate memory for log entry\n");
-                free(data);
-                free(fshost);
-                free(fsname);
-                free(fstype);
-                free(file);
-                free(command);
-                mistral_shutdown();
-                DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, failed\n");
-                return;
+        size_t i;
+        for (i = 0; i < FIELD_ID_MAX; ++i) {
+            int n;
+            switch (fields[i].kind) {
+            case FIELD_KIND_LITERAL:
+                fields[i].value = fields[i].source;
+                break;
+            case FIELD_KIND_ESCAPE:
+                fields[i].value = influxdb_escape_field(fields[i].source);
+                failed |= (!fields[i].value);
+                break;
+            case FIELD_KIND_U32:
+                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, PRIu32 "i",
+                             *(uint32_t *)fields[i].source);
+                failed |= (n >= (int)INLINE_FIELD_SIZE);
+                fields[i].value = fields[i].buf;
+                break;
+            case FIELD_KIND_S32:
+                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, PRId32 "i",
+                             *(int32_t *)fields[i].source);
+                failed |= (n >= (int)INLINE_FIELD_SIZE);
+                fields[i].value = fields[i].buf;
+                break;
+            case FIELD_KIND_U64:
+                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, PRIu64 "i",
+                             *(uint64_t *)fields[i].source);
+                failed |= (n >= (int)INLINE_FIELD_SIZE);
+                fields[i].value = fields[i].buf;
+                break;
+            case FIELD_KIND_S64:
+                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, PRId64 "i",
+                             *(int64_t *)fields[i].source);
+                failed |= (n >= (int)INLINE_FIELD_SIZE);
+                fields[i].value = fields[i].buf;
+                break;
             }
         }
-        
-        free(data);
-        free(fshost);
-        free(fsname);
-        free(fstype);
-        free(file);
-        free(command);
-        data = new_data;
+
+        int *tag_set;
+        int *field_set;
+
+        if (job_as_field) {
+            static int tag_ids[] = {FIELD_CALLTYPE, FIELD_LABEL, FIELD_PATH,
+                                    FIELD_FSTYPE, FIELD_FSNAME, FIELD_FSHOST,
+                                    FIELD_HOST, FIELD_ID_MAX};
+            tag_set = tag_ids;
+            static int field_ids[] = {FIELD_JOBGROUP, FIELD_JOBID, FIELD_COMMAND,
+                                      FIELD_CPU, FIELD_FILE, FIELD_LOGTYPE,
+                                      FIELD_MPIRANK, FIELD_PID, FIELD_SCOPE,
+                                      FIELD_SIZEMIN, FIELD_SIZEMAX, FIELD_THRESHOLD,
+                                      FIELD_TIMEFRAME, FIELD_VALUE, FIELD_ID_MAX};
+            field_set = field_ids;
+        } else {
+            static int tag_ids[] = {FIELD_CALLTYPE,
+                                    FIELD_JOBGROUP, FIELD_JOBID,
+                                    FIELD_LABEL, FIELD_PATH,
+                                    FIELD_FSTYPE, FIELD_FSNAME, FIELD_FSHOST,
+                                    FIELD_HOST, FIELD_ID_MAX};
+            tag_set = tag_ids;
+            static int field_ids[] = {FIELD_COMMAND,
+                                      FIELD_CPU, FIELD_FILE, FIELD_LOGTYPE,
+                                      FIELD_MPIRANK, FIELD_PID, FIELD_SCOPE,
+                                      FIELD_SIZEMIN, FIELD_SIZEMAX, FIELD_THRESHOLD,
+                                      FIELD_TIMEFRAME, FIELD_VALUE, FIELD_ID_MAX};
+            field_set = field_ids;
+        }
+
+        failed |= (fputs(mistral_measurement_name[log_entry->measurement], post_fields) < 0);
+
+        int *tag_p = tag_set;
+        while (*tag_p != FIELD_ID_MAX) {
+            failed |= (putc(',', post_fields) < 0);
+            failed |= (fprintf(post_fields, "%s=\"%s\"", fields[*tag_p].name,
+                               fields[*tag_p].value) < 0);
+            ++tag_p;
+        }
+
+        if (custom_variables) {
+            failed |= (fputs(custom_variables, post_fields) < 0);
+        }
+        failed |= (putc(' ', post_fields) < 0);
+
+        int *field_p = field_set;
+        while (*field_p != FIELD_ID_MAX) {
+            failed |= (fprintf(post_fields, "%s=", fields[*tag_p].name) < 0);
+            int kind = fields[*field_p].kind;
+            if (kind == FIELD_KIND_LITERAL || kind == FIELD_KIND_ESCAPE) {
+                failed |= (putc('\"', post_fields) < 0);
+            }
+            failed |= (fputs(fields[*tag_p].value, post_fields) < 0);
+            ++field_p;
+            if (*field_p != FIELD_ID_MAX) {
+                failed |= (putc(',', post_fields) < 0);
+            }
+        }
+
+        failed |= (fprintf(post_fields, "%ld%06" PRIu32 "\n",
+                           log_entry->epoch.tv_sec, log_entry->microseconds) < 0);
+
+        /* free allocated field values - the FIELD_KIND_ESCAPE ones */
+        for (i = 0; i < sizeof(fields) / sizeof(fields[0]); ++i) {
+            if (fields[i].value &&
+                (fields[i].kind == FIELD_KIND_ESCAPE))
+            {
+                free(fields[i].value);
+            }
+            fields[i].value = NULL;
+        }
 
         log_list_head = log_entry->forward;
         remque(log_entry);
@@ -777,8 +829,15 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
     }
     log_list_tail = NULL;
 
-    if (data) {
-        if (!set_curl_option(CURLOPT_POSTFIELDS, data)) {
+    if (failed) {
+        mistral_err("Could not allocate memory for log entry\n");
+        mistral_shutdown();
+        DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, failed\n");
+        return;
+    }
+
+    if (!failed && post_field_buf) {
+        if (!set_curl_option(CURLOPT_POSTFIELDS, post_field_buf)) {
             mistral_shutdown();
             DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, failed\n");
             return;
