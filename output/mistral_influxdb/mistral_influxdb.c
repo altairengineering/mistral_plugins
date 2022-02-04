@@ -692,11 +692,16 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
     UNUSED(block_error);
 
     mistral_log *log_entry = log_list_head;
-    char *post_field_buf = NULL;
-    size_t post_field_size = 0;
-    FILE *post_fields = open_memstream(&post_field_buf, &post_field_size);
 
-    bool failed = (post_fields == NULL);
+    /* Prepare the POST data for the Curl request - a large multi-line
+     * string, one long line per log entry - by accumulating it in a
+     * memory buffer stream. */
+
+    char *data_buf = NULL;
+    size_t data_size = 0;
+    FILE *post_data = open_memstream(&data_buf, &data_size);
+
+    bool failed = (post_data == NULL);
 
     while (log_entry) {
         struct field fields[] = {
@@ -792,39 +797,39 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
          * <measurement name>,<tags><custom_variables> <fields> <timestamp>
          */
 
-        failed |= (fputs(mistral_measurement_name[log_entry->measurement], post_fields) < 0);
+        failed |= (fputs(mistral_measurement_name[log_entry->measurement], post_data) < 0);
 
         int *tag_p = tag_set;
         while (*tag_p != FIELD_ID_MAX) {
-            failed |= (putc(',', post_fields) < 0);
-            failed |= (fprintf(post_fields, "%s=\"%s\"", fields[*tag_p].name,
+            failed |= (putc(',', post_data) < 0);
+            failed |= (fprintf(post_data, "%s=\"%s\"", fields[*tag_p].name,
                                fields[*tag_p].value) < 0);
             ++tag_p;
         }
 
         if (custom_variables) {
-            failed |= (fputs(custom_variables, post_fields) < 0);
+            failed |= (fputs(custom_variables, post_data) < 0);
         }
-        failed |= (putc(' ', post_fields) < 0);
+        failed |= (putc(' ', post_data) < 0);
 
         int *field_p = field_set;
         while (*field_p != FIELD_ID_MAX) {
-            failed |= (fprintf(post_fields, "%s=", fields[*tag_p].name) < 0);
+            failed |= (fprintf(post_data, "%s=", fields[*tag_p].name) < 0);
             int kind = fields[*field_p].kind;
             if (kind == FIELD_KIND_LITERAL || kind == FIELD_KIND_ESCAPE) {
-                failed |= (putc('\"', post_fields) < 0);
+                failed |= (putc('\"', post_data) < 0);
             }
-            failed |= (fputs(fields[*tag_p].value, post_fields) < 0);
+            failed |= (fputs(fields[*tag_p].value, post_data) < 0);
             if (kind == FIELD_KIND_LITERAL || kind == FIELD_KIND_ESCAPE) {
-                failed |= (putc('\"', post_fields) < 0);
+                failed |= (putc('\"', post_data) < 0);
             }
             ++field_p;
             if (*field_p != FIELD_ID_MAX) {
-                failed |= (putc(',', post_fields) < 0);
+                failed |= (putc(',', post_data) < 0);
             }
         }
 
-        failed |= (fprintf(post_fields, "%ld%06" PRIu32 "\n",
+        failed |= (fprintf(post_data, "%ld%06" PRIu32 "\n",
                            log_entry->epoch.tv_sec, log_entry->microseconds) < 0);
 
         /* free allocated field values - the FIELD_KIND_ESCAPE ones */
@@ -852,11 +857,11 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
         return;
     }
 
-    if (post_field_buf) {
-        if (!set_curl_option(CURLOPT_POSTFIELDS, post_field_buf)) {
+    if (data_buf) {
+        if (!set_curl_option(CURLOPT_POSTFIELDS, data_buf)) {
             mistral_shutdown();
             DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, failed\n");
-            free(post_field_buf);
+            free(data_buf);
             return;
         }
 
@@ -872,7 +877,7 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
             DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, failed\n");
         }
     }
-    free(post_field_buf);
+    free(data_buf);
     DEBUG_OUTPUT(DBG_ENTRY, "Leaving function, success\n");
 }
 
