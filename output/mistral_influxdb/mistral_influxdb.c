@@ -790,43 +790,44 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
 
         /* Each line of the post fields is of the form:
          * <measurement name>,<tags><custom_variables> <fields> <timestamp>
-         *
-         * failed |= (fputs(mistral_measurement_name[log_entry->measurement], post_fields) < 0);
-         *
-         * int *tag_p = tag_set;
-         * while (*tag_p != FIELD_ID_MAX) {
-         *  failed |= (putc(',', post_fields) < 0);
-         *  failed |= (fprintf(post_fields, "%s=\"%s\"", fields[*tag_p].name,
-         *                     fields[*tag_p].value) < 0);
-         ++tag_p;
-         * }
-         *
-         * if (custom_variables) {
-         *  failed |= (fputs(custom_variables, post_fields) < 0);
-         * }
-         * failed |= (putc(' ', post_fields) < 0);
-         *
-         * int *field_p = field_set;
-         * while (*field_p != FIELD_ID_MAX) {
-         *  failed |= (fprintf(post_fields, "%s=", fields[*tag_p].name) < 0);
-         *  int kind = fields[*field_p].kind;
-         *  if (kind == FIELD_KIND_LITERAL || kind == FIELD_KIND_ESCAPE) {
-         *      failed |= (putc('\"', post_fields) < 0);
-         *  }
-         *  failed |= (fputs(fields[*tag_p].value, post_fields) < 0);
-         *  if (kind == FIELD_KIND_LITERAL || kind == FIELD_KIND_ESCAPE) {
-         *      failed |= (putc('\"', post_fields) < 0);
-         *  }
-         ++field_p;
-         *  if (*field_p != FIELD_ID_MAX) {
-         *      failed |= (putc(',', post_fields) < 0);
-         *  }
-         * }
-         *
-         * failed |= (fprintf(post_fields, "%ld%06" PRIu32 "\n",
-         *                 log_entry->epoch.tv_sec, log_entry->microseconds) < 0);
-         *
-         * /* free allocated field values - the FIELD_KIND_ESCAPE ones */
+         */
+
+        failed |= (fputs(mistral_measurement_name[log_entry->measurement], post_fields) < 0);
+
+        int *tag_p = tag_set;
+        while (*tag_p != FIELD_ID_MAX) {
+            failed |= (putc(',', post_fields) < 0);
+            failed |= (fprintf(post_fields, "%s=\"%s\"", fields[*tag_p].name,
+                               fields[*tag_p].value) < 0);
+            ++tag_p;
+        }
+
+        if (custom_variables) {
+            failed |= (fputs(custom_variables, post_fields) < 0);
+        }
+        failed |= (putc(' ', post_fields) < 0);
+
+        int *field_p = field_set;
+        while (*field_p != FIELD_ID_MAX) {
+            failed |= (fprintf(post_fields, "%s=", fields[*tag_p].name) < 0);
+            int kind = fields[*field_p].kind;
+            if (kind == FIELD_KIND_LITERAL || kind == FIELD_KIND_ESCAPE) {
+                failed |= (putc('\"', post_fields) < 0);
+            }
+            failed |= (fputs(fields[*tag_p].value, post_fields) < 0);
+            if (kind == FIELD_KIND_LITERAL || kind == FIELD_KIND_ESCAPE) {
+                failed |= (putc('\"', post_fields) < 0);
+            }
+            ++field_p;
+            if (*field_p != FIELD_ID_MAX) {
+                failed |= (putc(',', post_fields) < 0);
+            }
+        }
+
+        failed |= (fprintf(post_fields, "%ld%06" PRIu32 "\n",
+                           log_entry->epoch.tv_sec, log_entry->microseconds) < 0);
+
+        /* free allocated field values - the FIELD_KIND_ESCAPE ones */
         for (i = 0; i < sizeof(fields) / sizeof(fields[0]); ++i) {
             if (fields[i].value &&
                 (fields[i].kind == FIELD_KIND_ESCAPE))
