@@ -850,6 +850,8 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
     }
     log_list_tail = NULL;
 
+    fclose(post_data);
+
     if (failed) {
         mistral_err("Could not allocate memory for log entry\n");
         mistral_shutdown();
