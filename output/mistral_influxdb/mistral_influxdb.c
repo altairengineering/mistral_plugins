@@ -829,7 +829,7 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
             }
         }
 
-        failed |= (fprintf(post_data, " %ld%06" PRIu32 "\n",
+        failed |= (fprintf(post_data, " %ld%06" PRIu32,
                            log_entry->epoch.tv_sec, log_entry->microseconds) < 0);
 
         /* free allocated field values - the FIELD_KIND_ESCAPE ones */
@@ -847,6 +847,11 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
         mistral_destroy_log_entry(log_entry);
 
         log_entry = log_list_head;
+
+        /* The lines of data are newline-separated, not newline-terminated */
+        if (log_entry) {
+            failed |= (putc('\n', post_data) < 0);
+        }
     }
     log_list_tail = NULL;
 
