@@ -614,7 +614,7 @@ enum {
     FIELD_KIND_S32, /* int32_t */
     FIELD_KIND_U64, /* uint64_t */
     FIELD_KIND_S64, /* int64_t */
-    FIELD_KIND_VALUE, /* The value tag is special as it is an integer that does not ta. */
+    FIELD_KIND_VALUE, /* The value tag is special as it is an integer sent as a float. */
 };
 
 /* All the different fields we send to InfluxDB, in no particular order,
