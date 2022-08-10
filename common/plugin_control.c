@@ -171,7 +171,7 @@ const uint32_t mistral_call_type_mask[] = {
 };
 
 /* Similarly create some constant integer arrays */
-const uint32_t mistral_unit_scale[] = {
+const uint64_t mistral_unit_scale[] = {
     #define X(name, str, scale, type) scale,
     UNIT(X)
     #undef X
@@ -785,7 +785,7 @@ static bool parse_size(const char *s, uint64_t *size, enum mistral_unit *unit)
         *unit = u;
     }
 
-    *size = (uint64_t)(value * (double)mistral_unit_scale[*unit]);
+    *size = (uint64_t)(value * mistral_unit_scale[*unit]);
 
     /* Check if the size calculation above overflowed */
 

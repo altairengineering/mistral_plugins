@@ -92,18 +92,24 @@ enum __attribute__((packed)) mistral_unit_class {
 
 extern const char * const mistral_unit_class_name[];
 
-#define UNIT(X)                                        \
-    X(MICROSECS,         "us", 1,    UNIT_CLASS_TIME)  \
-    X(MILLISECS,         "ms", 1e3,  UNIT_CLASS_TIME)  \
-    X(KILOBYTES,         "kB", 1e3,  UNIT_CLASS_SIZE)  \
-    X(CAPITAL_KILOBYTES, "KB", 1e3,  UNIT_CLASS_SIZE)  \
-    X(MEGABYTES,         "MB", 1e6,  UNIT_CLASS_SIZE)  \
-    X(GIGABYTES,         "GB", 1e9,  UNIT_CLASS_SIZE)  \
-    X(BYTES,              "B",  1,   UNIT_CLASS_SIZE)  \
-    X(SECONDS,            "s",  1e6, UNIT_CLASS_TIME)  \
-    X(THOUSAND,           "k",  1e3, UNIT_CLASS_COUNT) \
-    X(CAPITAL_THOUSAND,   "K",  1e3, UNIT_CLASS_COUNT) \
-    X(MILLION,            "M",  1e6, UNIT_CLASS_COUNT) \
+#define UNIT(X)                                                 \
+    X(MICROSECS,         "us", 1,    UNIT_CLASS_TIME)           \
+    X(MILLISECS,         "ms", 1e3,  UNIT_CLASS_TIME)           \
+    X(KILOBYTES,         "kB", 1e3,  UNIT_CLASS_SIZE)           \
+    X(CAPITAL_KILOBYTES, "KB", 1e3,  UNIT_CLASS_SIZE)           \
+    X(MEGABYTES,         "MB", 1e6,  UNIT_CLASS_SIZE)           \
+    X(GIGABYTES,         "GB", 1e9,  UNIT_CLASS_SIZE)           \
+    X(KIBIBYTES,         "KiB", (1ull << 10),  UNIT_CLASS_SIZE) \
+    X(MEBIBYTES,         "MiB", (1ull << 20),  UNIT_CLASS_SIZE) \
+    X(GIBIBYTES,         "GiB", (1ull << 30),  UNIT_CLASS_SIZE) \
+    X(TEBIBYTES,         "TiB", (1ull << 40),  UNIT_CLASS_SIZE) \
+    X(PEBIBYTES,         "PiB", (1ull << 50),  UNIT_CLASS_SIZE) \
+    X(EXBIBYTES,         "EiB", (1ull << 60),  UNIT_CLASS_SIZE) \
+    X(BYTES,              "B",  1,   UNIT_CLASS_SIZE)           \
+    X(SECONDS,            "s",  1e6, UNIT_CLASS_TIME)           \
+    X(THOUSAND,           "k",  1e3, UNIT_CLASS_COUNT)          \
+    X(CAPITAL_THOUSAND,   "K",  1e3, UNIT_CLASS_COUNT)          \
+    X(MILLION,            "M",  1e6, UNIT_CLASS_COUNT)          \
     X(COUNT,               "",   1,  UNIT_CLASS_COUNT)
 
 enum __attribute__((packed)) mistral_unit {
@@ -114,7 +120,7 @@ enum __attribute__((packed)) mistral_unit {
 };
 
 extern const char * const mistral_unit_suffix[];
-extern const uint32_t mistral_unit_scale[];
+extern const uint64_t mistral_unit_scale[];
 extern const uint32_t mistral_unit_type[];
 
 #define CALL_TYPE(X)                \
