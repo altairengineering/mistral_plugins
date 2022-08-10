@@ -614,6 +614,7 @@ enum {
     FIELD_KIND_S32, /* int32_t */
     FIELD_KIND_U64, /* uint64_t */
     FIELD_KIND_S64, /* int64_t */
+    FIELD_KIND_VALUE, /* The value tag is special as it is an integer that does not ta. */
 };
 
 /* All the different fields we send to InfluxDB, in no particular order,
@@ -640,7 +641,7 @@ enum {
     X(SIZEMIN, "sizemin", S64, &log_entry->size_min)                                               \
     X(THRESHOLD, "threshold", U64, &log_entry->threshold)                                          \
     X(TIMEFRAME, "timeframe", U64, &log_entry->timeframe)                                          \
-    X(VALUE, "value", U64, &log_entry->measured)
+    X(VALUE, "value", VALUE, &log_entry->measured)
 
 /* An enum of the various field IDs, with names like FIELD_SPONG */
 
@@ -722,7 +723,7 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
          * have to escape double quotes in command and file path. Integers require 'i' suffix,
          * otherwise InfluxDB interprets the value as a float. For example, if you omit 'i' with
          * size-max value 9223372036854775807, InfluxDB stores it as 9.223372036854776e+18 and
-         * returns 9223372036854776000.
+         * returns 9223372036854776000. The value field is an example of where this is desireable.
          */
         size_t i;
         for (i = 0; i < FIELD_ID_MAX; ++i) {
@@ -755,6 +756,12 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
                 break;
             case FIELD_KIND_S64:
                 n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, "%" PRId64 "i",
+                             *(int64_t *)fields[i].source);
+                failed |= (n >= (int)INLINE_FIELD_SIZE);
+                fields[i].value = fields[i].buf;
+                break;
+            case FIELD_KIND_VALUE:
+                n = snprintf(fields[i].buf, INLINE_FIELD_SIZE, "%" PRId64,
                              *(int64_t *)fields[i].source);
                 failed |= (n >= (int)INLINE_FIELD_SIZE);
                 fields[i].value = fields[i].buf;
@@ -802,8 +809,20 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
         int *tag_p = tag_set;
         while (*tag_p != FIELD_ID_MAX) {
             failed |= (putc(',', post_data) < 0);
-            failed |= (fprintf(post_data, "%s=\"%s\"", fields[*tag_p].name,
-                               fields[*tag_p].value) < 0);
+            switch (*tag_p) {
+                /* InfluxDB doesn't seem to take quotation marks with tag values EXCEPT for tags
+                 * representing file paths. */
+                case FIELD_PATH:
+                case FIELD_FSTYPE:
+                case FIELD_FSNAME:
+                case FIELD_FSHOST:
+                    failed |= (fprintf(post_data, "%s=\"%s\"", fields[*tag_p].name,
+                                       fields[*tag_p].value) < 0);
+                    break;
+                default:
+                    failed |= (fprintf(post_data, "%s=%s", fields[*tag_p].name,
+                                       fields[*tag_p].value) < 0);
+            }
             ++tag_p;
         }
 
