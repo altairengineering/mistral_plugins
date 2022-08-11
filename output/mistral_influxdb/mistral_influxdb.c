@@ -95,7 +95,7 @@ static void usage(const char *name)
     mistral_err("Usage:\n");
     mistral_err(
         "  %s [-d database] [-h host] [-P port] [-e file] [-m octal-mode] [-u user] [-p password] [-s] [-v var-name ...]\n"
-        "[-k] [-c certificate_path] [--cert-dir=certificate_directory]\n", name);
+        "[-k] [-j] [-c certificate_path] [--cert-dir=certificate_directory]\n", name);
     mistral_err("\n"
                 "  --cert-path=certificate_path\n"
                 "  -c certificate_path\n"
@@ -292,7 +292,7 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
         {"debug", required_argument, NULL, 'D'},
         {"error", required_argument, NULL, 'e'},
         {"host", required_argument, NULL, 'h'},
-        {"job-as-field", no_argument, NULL, 'j'},
+        {"job-as-tag", no_argument, NULL, 'j'},
         {"mode", required_argument, NULL, 'm'},
         {"password", required_argument, NULL, 'p'},
         {"port", required_argument, NULL, 'P'},
