@@ -809,19 +809,8 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
         int *tag_p = tag_set;
         while (*tag_p != FIELD_ID_MAX) {
             failed |= (putc(',', post_data) < 0);
-            switch (*tag_p) {
-                /* File path's should be quoted to escape spaces */
-                case FIELD_PATH:
-                case FIELD_FSTYPE:
-                case FIELD_FSNAME:
-                case FIELD_FSHOST:
-                    failed |= (fprintf(post_data, "%s=\"%s\"", fields[*tag_p].name,
-                                       fields[*tag_p].value) < 0);
-                    break;
-                default:
-                    failed |= (fprintf(post_data, "%s=%s", fields[*tag_p].name,
-                                       fields[*tag_p].value) < 0);
-            }
+            failed |= (fprintf(post_data, "\"%s=%s\"", fields[*tag_p].name,
+                               fields[*tag_p].value) < 0);
             ++tag_p;
         }
 
