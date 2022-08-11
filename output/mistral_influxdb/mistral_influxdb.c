@@ -42,7 +42,7 @@ static char *auth = NULL;
 static mistral_log *log_list_head = NULL;
 static mistral_log *log_list_tail = NULL;
 static char *custom_variables = NULL;
-static bool job_as_field = false;
+static bool job_as_tag = false;
 
 /*
  * set_curl_option
@@ -124,9 +124,9 @@ static void usage(const char *name)
                 "     The hostname of the InfluxDB server with which to establish a connection.\n"
                 "     If not specified the plug-in will default to \"localhost\".\n"
                 "\n"
-                "  --job-as-field\n"
+                "  --job-as-tag\n"
                 "  -j \n"
-                "     Output Job ID and Job group as a field, rather than a tag.\n"
+                "     Output Job ID and Job group as a tag, rather than a field.\n"
                 "\n"
                 "  --mode=octal-mode\n"
                 "  -m octal-mode\n"
@@ -341,7 +341,7 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
             host = optarg;
             break;
         case 'j':
-            job_as_field = true;
+            job_as_tag = true;
             break;
         case 'm': {
             char *end = NULL;
@@ -772,19 +772,7 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
         int *tag_set;
         int *field_set;
 
-        if (job_as_field) {
-            /* Job ID and group ID are fields */
-            static int tag_ids[] = {FIELD_CALLTYPE, FIELD_LABEL, FIELD_PATH,
-                                    FIELD_FSTYPE, FIELD_FSNAME, FIELD_FSHOST,
-                                    FIELD_HOST, FIELD_ID_MAX};
-            tag_set = tag_ids;
-            static int field_ids[] = {FIELD_JOBGROUP, FIELD_JOBID, FIELD_COMMAND,
-                                      FIELD_CPU, FIELD_FILE, FIELD_LOGTYPE,
-                                      FIELD_MPIRANK, FIELD_PID, FIELD_SCOPE,
-                                      FIELD_SIZEMIN, FIELD_SIZEMAX, FIELD_THRESHOLD,
-                                      FIELD_TIMEFRAME, FIELD_VALUE, FIELD_ID_MAX};
-            field_set = field_ids;
-        } else {
+        if (job_as_tag) {
             /* Job ID and group ID are tags */
             static int tag_ids[] = {FIELD_CALLTYPE,
                                     FIELD_JOBGROUP, FIELD_JOBID,
@@ -793,6 +781,18 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
                                     FIELD_HOST, FIELD_ID_MAX};
             tag_set = tag_ids;
             static int field_ids[] = {FIELD_COMMAND,
+                                      FIELD_CPU, FIELD_FILE, FIELD_LOGTYPE,
+                                      FIELD_MPIRANK, FIELD_PID, FIELD_SCOPE,
+                                      FIELD_SIZEMIN, FIELD_SIZEMAX, FIELD_THRESHOLD,
+                                      FIELD_TIMEFRAME, FIELD_VALUE, FIELD_ID_MAX};
+            field_set = field_ids;
+        } else {
+            /* Job ID and group ID are fields */
+            static int tag_ids[] = {FIELD_CALLTYPE, FIELD_LABEL, FIELD_PATH,
+                                    FIELD_FSTYPE, FIELD_FSNAME, FIELD_FSHOST,
+                                    FIELD_HOST, FIELD_ID_MAX};
+            tag_set = tag_ids;
+            static int field_ids[] = {FIELD_JOBGROUP, FIELD_JOBID, FIELD_COMMAND,
                                       FIELD_CPU, FIELD_FILE, FIELD_LOGTYPE,
                                       FIELD_MPIRANK, FIELD_PID, FIELD_SCOPE,
                                       FIELD_SIZEMIN, FIELD_SIZEMAX, FIELD_THRESHOLD,
