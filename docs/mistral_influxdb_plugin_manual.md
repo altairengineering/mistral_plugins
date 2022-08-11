@@ -207,8 +207,6 @@ Keys
 | :---------- | :------------------------------------------------------ |
 | `calltype`  | The list of call types specified in the log message `CALL-TYPE` field. The Mistral InfluxDB plug-in will always log compound types in alphabetical order. E.g. if the log message listed call types as `read+write+seek` the plug-in will normalise this to `read+seek+write` |
 | `host`      | Copied from the log message `HOSTNAME` field with any domain component removed. |
-| `job-group` | Copied from the log message `JOB-GROUP-ID` field unchanged or `N/A` if this field is blank. |
-| `job-id`    | Copied from the log message `JOB-ID` field unchanged or `N/A` if this field is blank. |
 | `label`     | Copied from the log message `LABEL` field unchanged. |
 
 
@@ -229,6 +227,8 @@ Field Values:
 | `command`   | Copied from the log message `COMMAND-LINE` field unchanged. |
 | `cpu`       | Copied from the log message `CPU` field unchanged. |
 | `file`      | Copied from the log message `FILE-NAME` field unchanged. |
+| `job-group` | Copied from the log message `JOB-GROUP-ID` field unchanged or `N/A` if this field is blank. |
+| `job-id`    | Copied from the log message `JOB-ID` field unchanged or `N/A` if this field is blank. |
 | `logtype`   | Either `monitor` or `throttle` indicating the type of rule that generated the log. |
 | `mpirank`   | Copied from the log message `MPI-WORLD-RANK` field unchanged. |
 | `path`      | Copied from the log message `PATH` field unchanged. |
