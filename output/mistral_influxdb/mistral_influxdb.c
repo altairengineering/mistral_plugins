@@ -810,8 +810,7 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
         while (*tag_p != FIELD_ID_MAX) {
             failed |= (putc(',', post_data) < 0);
             switch (*tag_p) {
-                /* InfluxDB doesn't seem to take quotation marks with tag values EXCEPT for tags
-                 * representing file paths. */
+                /* File path's should be quoted to escape spaces */
                 case FIELD_PATH:
                 case FIELD_FSTYPE:
                 case FIELD_FSNAME:
