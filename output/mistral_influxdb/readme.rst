@@ -27,6 +27,9 @@ The plug-in accepts the following command line options:
    The hostname of the InfluxDB server with which to establish a connection.
    If not specified the plug-in will default to "localhost".
 
+--job-as-tag | -j
+   Output Job ID and Job group as a tag, rather than a field.
+
 --mode=octal-mode | -m octal-mode
    Permissions used to create the error log file specified by the -e option.
 
