@@ -808,9 +808,12 @@ void mistral_received_data_end(uint64_t block_num, bool block_error)
 
         int *tag_p = tag_set;
         while (*tag_p != FIELD_ID_MAX) {
-            failed |= (putc(',', post_data) < 0);
-            failed |= (fprintf(post_data, "\"%s=%s\"", fields[*tag_p].name,
-                               fields[*tag_p].value) < 0);
+            if (fields[*tag_p].value[0]) {
+                /* Only add a tag if there is a value for it */
+                failed |= (putc(',', post_data) < 0);
+                failed |= (fprintf(post_data, "%s=%s", fields[*tag_p].name,
+                                   fields[*tag_p].value) < 0);
+            }
             ++tag_p;
         }
 
