@@ -43,9 +43,11 @@ static void usage(const char *name)
     mistral_err("Usage:\n"
                 "  %s [-i metric] [-h host] [-p port] [-e file] [-m octal-mode] [-4|-6]\n", name);
     mistral_err("\n"
+                "  --4\n"
                 "  -4\n"
                 "     Use IPv4 only. This is the default behaviour.\n"
                 "\n"
+                "  --6\n"
                 "  -6\n"
                 "     Use IPv6 only.\n"
                 "\n"
@@ -157,7 +159,7 @@ void mistral_startup(mistral_plugin *plugin, int argc, char *argv[])
     struct addrinfo *addrs;
     struct addrinfo hints;
 
-    while ((opt = getopt_long(argc, argv, "e:h:i:m:p:", options, NULL)) != -1) {
+    while ((opt = getopt_long_only(argc, argv, "e:h:i:m:p:", options, NULL)) != -1) {
         switch (opt) {
         case '4':
             family = AF_INET;

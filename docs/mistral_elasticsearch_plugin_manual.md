@@ -92,103 +92,109 @@ specify this option.
 # Configuring Mistral to use the Elasticsearch Plug-in
 
 Please see the Plug-in Configuration section of the main Mistral User
-Guide for full details of the plug-in configuration file specification.
+Guide for full details of the plug-in configuration specification.
 Where these instructions conflict with information in the main Mistral
 User Guide please verify that the plug-in version available is
 compatible with the version of Mistral in use and, if so, the
 information in the User Guide should be assumed to be correct.
 
-## Mistral Plug-in Configuration File
+## Mistral Plug-in Configuration
 
-The Mistral plug-in configuration file is an ASCII plain text file
-containing all the information required by Mistral to use any `OUTPUT`
-or `UPDATE` plug-ins required. Only a single plug-in of each type can be
-configured.
+The Mistral plug-in configuration is in YAML and goes in the same file
+as the main Mistral Configuration File. The plug-in is declared with the
+`plugin` mapping and requires at minimum a `path` key-value pair. All of
+the specified settings are members of the `plugin` mapping.
 
-Once complete the path to the configuration file must be set in the
-environment variable `MISTRAL_PLUGIN_CONFIG`. As with the plug-in itself
-the configuration file must be available in the same canonical path on
-all execution hosts in your cluster.
+    plugin:
+        path: plugins/mistral_elasticsearch/x86_64/mistral_elasticsearch
 
 This section describes the specific settings required to enable the
 Elasticsearch Plug-in.
 
-### PLUGIN directive
+### Path
 
-The `PLUGIN` directive must be set to `OUTPUT` i.e.
+The `path` key must be set to the path of the elasticsearch plguin-in
+executable. This must be either absolute or relative to the 
+`MISTRAL_INSTALL_DIRECTORY` environment variable and needs to be accessible
+and the same on all hosts. Environment variables are not supported in the
+value.
 
-PLUGIN,OUTPUT
+    path: plugins/mistral_elasticsearch/x86_64/mistral_elasticsearch
 
-### INTERVAL directive
+### Interval
 
-The `INTERVAL` directive takes a single integer value parameter. This
+The `interval` key takes a single integer value parameter. This
 value represents the time in seconds the Mistral application will wait
 between calls to the specified plug-in e.g.
 
-    INTERVAL,300
+    interval: 300
 
 The value chosen is at the discretion of the user, however care should
 be taken to balance the need for timely updates with the scalability of
 the Elasticsearch installation and the average length of jobs on the
 cluster.
 
-### PLUGIN\_PATH directive
+### Options
 
-The `PLUGIN_PATH` directive value must be the fully qualified path to
-the Elasticsearch plug-in as described above i.e.
-
-    PLUGIN\_PATH,<install_dir>/output/mistral_elasticsearch_v2.0/x86_64/mistral_elasticsearch
-
-The `PLUGIN_PATH` value will be passed to `/bin/sh` for environment
-variable expansion at the start of each execution host job.
-
-### PLUGIN\_OPTION directive
-
-The `PLUGIN_OPTION` directive is optional and can occur multiple times.
-Each `PLUGIN_OPTION` directive is treated as a separate command line
-argument to the plug-in. Whitespace is respected in these values. A full
+The `options` mapping is optional and lists all options to be passed to
+the plug-in as command line arguments to the executable. A full
 list of valid options for this plug-in can be found in section
-[2.2](#anchor-9) [Plug-in Command Line Options](#anchor-9).
+[2.2](#anchor-10) [Plug-in Configuration File Options](#anchor-10). The order of
+options is not preserved. These values are passed to the plug-in executable
+as `--key=value`. For example,
 
-As whitespace is respected command line options that take parameters
-must be specified as separate `PLUGIN_OPTION` values. For example, to
-specify the hostname the plug-in should use to connect to the
-Elasticsearch server the option `-h
-hostname` or `--host=hostname` must be provided, this must be specified
-in the plug-in configuration file as:
+    options:
+        host: hostname
+        error: filename
 
-    PLUGIN_OPTION,-h
-    PLUGIN_OPTION,hostname
+will pass to the plug-in executable the command line arguments 
+`--host=hostname` and `--error=filename`.
 
-or
+### Switches
 
-    PLUGIN_OPTION,--host=hostname
+The `switches` mapping is optional and lists all switches to be passed to
+the plug-in as command line arguments to the executable. A full
+list of valid switches for this plug-in can be found in section
+[2.3](#anchor-11) [Plug-in Configuration File Switches](#anchor-11). The order of
+switches is not preserved. Switches not present are presumed to be off. These
+switches are passed to the plug-in executable as `--key`. For example,
 
-Options will be passed to the plug-in in the order in which they are
-defined and each `PLUGIN_OPTION` value will be passed to `/bin/sh` for
-environment variable expansion at the start of each execution host job.
+    switches:
+        date: on
+        ssl: off
 
-### END Directive
+will pass to the plug-in executable the command line argument `--date`.
 
-The `END` directive indicates the end of a configuration block and does
-not take any values.
+### Environment Variable Reporting
+The `vars` mapping is optional and lists all environment variables that
+the plug-in should store and report on. Environment variables not listed
+are not reported on. These will be passed to the plug-in executable as
+`--var=key`. For example,
 
-## Plug-in Command Line Options
+    vars:
+        USER: yes
+        HOME: yes
+        SHELL: no
 
-The following command line options are supported by the Elasticsearch
-plug-in.
+will pass to the plug-in executable the command line arguments `--var=USER` and
+`--var=HOME`.
 
-    -e file, --error=file
+## Plug-in Configuration File Options
+
+The following configuration file key-value options are supported by the 
+Elasticsearch plug-in.
+
+    error: file
 
 Specify location for error log. If not specified all errors will be
 output on `stderr` and handled by Mistral error logging.
 
-    -h hostname, --host=hostname
+    host: hostname
 
 The hostname of the Elasticsearch server with which to establish a
 connection. If not specified the plug-in will default to `localhost`.
 
-    -i index_name, --index=index_name
+    index: index_name
 
 Set the index to be used for storing data. This should match the index
 name provided when defining the index mapping template (see section
@@ -196,39 +202,39 @@ name provided when defining the index mapping template (see section
 `<idx_name>-yyyy-MM-dd`. If not specified the plug-in will default to
 `mistral`.
 
-    -m octal-mode, --mode=octal-mode
+    mode: octal-mode
 
 Permissions used to create the error log file specified by the -e
 option.
 
-    -p secret, --password=secret
+    password: secret
 
 The password required to access the Elasticsearch server if needed.
 
-    -P number, --port=number
+    port: number
 
 Specifies the port to connect to on the Elasticsearch server host. If
 not specified the plug-in will default to `9200`.
 
-    -s, --ssl
-
-Connect to the Elasticsearch server via secure HTTP.
-
-    -u user, --username=user
+    username: user
 
 The username required to access the Elasticsearch server if needed.
 
-    -v var-name, --var=var-name
-
-The name of an environment variable, the value of which should be stored
-by the plug-in. This option can be specified multiple times.
-
-    -V num, --es-version=num
+    es-version: num
 
 The major version of the Elasticsearch server to connect to. If not
 specified the plug-in will default to "`5`".
 
-    -d, --date
+## Plug-in Configuration File Switches
+
+The following configuration file options are supported by the Elasticsearch
+plug-in.
+
+    ssl: on
+
+Connect to the Elasticsearch server via secure HTTP.
+
+    date: on
 
 Use date based index naming. By default the indexes are named 
 idx_name-00000N, if you would prefer to use idx_name-YYYY-MM-DD then

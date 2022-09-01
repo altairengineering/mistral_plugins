@@ -30,24 +30,16 @@ The plug-in accepts the following command line options:
   The name of an environment variable, the value of which should be stored by
   the plug-in. This option can be specified multiple times.
 
-The options would normally be included in a plug-in configuration file, such as
+The options would normally be included in a Mistral configuration file, such as
 
 ::
-
-   PLUGIN,OUTPUT
-
-   PLUGIN_PATH,/path/to/mistral_fluentbit
-
-   INTERVAL,1
-
-   PLUGIN_OPTION,--host=127.0.0.1
-   PLUGIN_OPTION,--port=5170
-   PLUGIN_OPTION,--var=USER
-   PLUGIN_OPTION,--var=SHELL
-   PLUGIN_OPTION,--error=/path/to/mistral_fluentbit.log
-
-   END
-
-
-To enable the output plug-in you should set the ``MISTRAL_PLUGIN_CONFIG``
-environment variable to point at the plug-in configuration file.
+    plugin:
+        path: /path/to/mistral_fluentbit
+        interval: 1
+        options:
+            host: 127.0.0.1
+            port: 5170
+            error: /path/to/mistral_fluentbit.log
+        var:
+            USER: yes
+            SHELL: yes

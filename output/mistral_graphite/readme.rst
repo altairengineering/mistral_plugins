@@ -6,10 +6,10 @@ database.
 
 The plug-in accepts the following command line options:
 
--4
+-4 | --4
   Use IPv4 only. This is the default behaviour.
 
--6
+-6 | --4
   Use IPv6 only.
 
 --error=file | -e file
@@ -33,23 +33,15 @@ The plug-in accepts the following command line options:
   Specifies the port to connect to on the Graphite server host.
   If not specified the plug-in will default to "2003".
 
-The options would normally be included in a plug-in configuration file, such as
+The options would normally be included in a Mistral configuration file, such as
 
 ::
 
-   PLUGIN,OUTPUT
-
-   PLUGIN_PATH,/path/to/mistral_graphite
-
-   INTERVAL,5
-
-   PLUGIN_OPTION,--instance=mistral.$USER
-   PLUGIN_OPTION,--host=10.33.0.186
-   PLUGIN_OPTION,--port=2003
-   PLUGIN_OPTION,--error=/path/to/mistral_graphite.log
-
-   END
-
-
-To enable the output plug-in you should set the ``MISTRAL_PLUGIN_CONFIG``
-environment variable to point at the plug-in configuration file.
+    plugin:
+        path: /path/to/mistral_graphite
+        interval: 5
+        options:
+            instance: mistral.myuser
+            host: 10.33.0.186
+            port: 2003
+            error: /path/to/mistral_graphite.log
