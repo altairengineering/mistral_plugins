@@ -68,122 +68,125 @@ User Guide please verify that the plug-in version available is
 compatible with the version of Mistral in use and, if so, the
 information in the User Guide should be assumed to be correct.
 
-## Mistral Plug-in Configuration File
+## Mistral Plug-in Configuration
 
-The Mistral plug-in configuration file is an ASCII plain text file
-containing all the information required by Mistral to use any *OUTPUT*
-or *UPDATE* plug-ins required. Only a single plug-in of each type can be
-configured.
+The Mistral plug-in configuration is in YAML and goes in the same file
+as the main Mistral Configuration File. The plug-in is declared with the
+`plugin` mapping and requires at minimum a `path` key-value pair. All of
+the specified settings are members of the `plugin` mapping.
 
-Once complete the path to the configuration file must be set in the
-environment variable *MISTRAL\_PLUGIN\_CONFIG*. As with the plug-in
-itself the configuration file must be available in the same canonical
-path on all execution hosts in your cluster.
+    plugin:
+        path: plugins/mistral_splunk/x86_64/mistral_splunk
 
 This section describes the specific settings required to enable the
 Splunk Plug-in.
 
-### PLUGIN directive
+### Path
 
-The *PLUGIN* directive must be set to “*OUTPUT*” i.e.
+The `path` key must be set to the path of the splunk plguin-in
+executable. This must be either absolute or relative to the
+`MISTRAL_INSTALL_DIRECTORY` environment variable and needs to be accessible
+and the same on all hosts. Environment variables in the value are not supported.
 
-    PLUGIN,OUTPUT
+    path: plugins/mistral_splunk/x86_64/mistral_splunk
 
-### INTERVAL directive
+### Interval
 
-The *INTERVAL* directive takes a single integer value parameter. This
+The `interval` key takes a single integer value parameter. This
 value represents the time in seconds the Mistral application will wait
 between calls to the specified plug-in e.g.
 
-    INTERVAL,300
+    interval: 300
 
 The value chosen is at the discretion of the user, however care should
 be taken to balance the need for timely updates with the scalability of
-the Splunk installation and the average length of jobs on the cluster.
+the InfluxDB installation and the average length of jobs on the
+cluster.
 
-### PLUGIN\_PATH directive
+### Options
 
-The *PLUGIN\_PATH* directive value must be the fully qualified path to
-the Splunk plug-in as described above i.e.
-
-    PLUGIN_PATH,<install_dir>/output/mistral_splunk_v5.1.0/x86_64/mistral_splunk
-
-The *PLUGIN\_PATH* value will be passed to */bin/sh* for environment
-variable expansion at the start of each execution host job.
-
-### PLUGIN\_OPTION directive
-
-The *PLUGIN\_OPTION* directive is optional and can occur multiple times.
-Each *PLUGIN\_OPTION* directive is treated as a separate command line
-argument to the plug-in. Whitespace is respected in these values. A full
+The `options` mapping is optional and lists all options to be passed to
+the plug-in as command line arguments to the executable. A full
 list of valid options for this plug-in can be found in section
-[2.2](#anchor-9) [Plug-in Command Line Options](#anchor-9).
+[2.2](#anchor-9) [Plug-in Configuration File Options](#anchor-9). The order of
+options is not preserved. These values are passed to the plug-in executable
+as `--key=value`. For example,
 
-As whitespace is respected command line options that take parameters
-must be specified as separate *PLUGIN\_OPTION* values. For example, to
-specify the hostname the plug-in should use to connect to the Splunk
-server the option “*-h hostname*” or “*--host=hostname*” must be
-provided, this must be specified in the plug-in configuration file as:
+    options:
+        host: hostname
+        error: filename
 
-    PLUGIN_OPTION,-h
-    PLUGIN_OPTION,hostname
+will pass to the plug-in executable the command line arguments 
+`--host=hostname` and `--error=filename`.
 
-or
+### Switches
 
-    PLUGIN_OPTION,--host=hostname
+The `switches` mapping is optional and lists all switches to be passed to
+the plug-in as command line arguments to the executable. A full
+list of valid switches for this plug-in can be found in section
+[2.3](#anchor-10) [Plug-in Configuration File Switches](#anchor-10). The order of
+switches is not preserved. Switches not present are presumed to be off. These
+switches are passed to the plug-in executable as `--key`. For example,
 
-Options will be passed to the plug-in in the order in which they are
-defined and each *PLUGIN\_OPTION* value will be passed to */bin/sh* for
-environment variable expansion at the start of each execution host job.
+    switches:
+        ssl: on
 
-### END Directive
+will pass to the plug-in executable the command line argument `--ssl`.
 
-The *END* directive indicates the end of a configuration block and does
-not take any values.
+### Environment Variable Reporting
+The `vars` mapping is optional and lists all environment variables that
+the plug-in should store and report on. Environment variables not listed
+are not reported on. These will be passed to the plug-in executable as
+`--var=key`. For example,
 
-## Plug-in Command Line Options
+    vars:
+        USER: yes
+        HOME: yes
+        SHELL: no
+
+will pass to the plug-in executable the command line arguments `--var=USER` and
+`--var=HOME`.
+
+## Plug-in Configuration File Options
 
 The following command line options are supported by the Splunk plug-in.
 
-    -e file, --error=file
+    error: file
 
 Specify location for error log. If not specified all errors will be
 output on *stderr* and handled by Mistral error logging.
 
-    -h hostname, --host=hostname
+    host: hostname
 
 The hostname of the Splunk server with which to establish a connection.
 If not specified the plug-in will default to “*localhost*”.
 
-    -i index_name, --index=index_name
+    index: index_name
 
 The name of the index in which to store data, if not specified this will
 default to “*main*”.
 
-    -m octal-mode, --mode=octal-mode
+    mode: octal-mode
 
 Permissions used to create the error log file specified by the -e
 option.
 
-    -p number, --port=number
+    port: number
 
 Specifies the port to connect to on the Splunk server host. If not
 specified the plug-in will default to “*8088*”.
 
-    -s, --ssl
-
-Connect to the Splunk server via secure HTTP.
-
-    -t hash, --token=hash
+    token: hash
 
 The API endpoint token required to access the Splunk server. If hash is
 specified as “*file:\<filename\>*” the plug-in will attempt to read the
 token from the first line of *\<filename\>*.
 
-    -v var-name, --var=var-name
+## Plug-in Configuration File Switches
 
-The name of an environment variable, the value of which should be stored
-by the plug-in. This option can be specified multiple times.
+    ssl: on
+
+Connect to the Splunk server via secure HTTP.
 
 # Mistral’s Splunk Document Model
 

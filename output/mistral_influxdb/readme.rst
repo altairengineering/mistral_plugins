@@ -53,27 +53,21 @@ The plug-in accepts the following command line options:
    The name of an environment variable, the value of which should be stored by
    the plug-in. This option can be specified multiple times.
 
-The options would normally be included in a plug-in configuration file, such as
+The options would normally be included in a Mistral configuration file, such as
 
 ::
-
-   PLUGIN,OUTPUT
-
-   PLUGIN_PATH,/path/to/mistral_influxdb
-
-   INTERVAL,5
-
-   PLUGIN_OPTION,--database=mistral
-   PLUGIN_OPTION,--host=10.33.0.186
-   PLUGIN_OPTION,--port=8086
-   PLUGIN_OPTION,--username=myname
-   PLUGIN_OPTION,--password=secret
-   PLUGIN_OPTION,--var=USER
-   PLUGIN_OPTION,--var=SHELL
-   PLUGIN_OPTION,--error=/path/to/mistral_influxdb.log
-
-   END
-
-
-To enable the output plug-in you should set the ``MISTRAL_PLUGIN_CONFIG``
-environment variable to point at the plug-in configuration file.
+    plugin:
+        path: /path/to/mistral_influxdb
+        interval: 5
+        options:
+            database: mistral
+            host: 10.33.0.186
+            port: 8086
+            username: myname
+            password: secret
+            error: /path/to/mistral_influxdb.log
+        switches:
+            ssl: on
+        vars:
+            USER: yes
+            SHELL: yes

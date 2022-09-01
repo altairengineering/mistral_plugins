@@ -1,4 +1,4 @@
-% Ellexus - Graphite Output Plug-in Configuration Guide
+% Ellexus - Graphite Plug-in Configuration Guide
 
 # Installing the Graphite Plug-in
 
@@ -23,125 +23,135 @@ hosts in your cluster.
 # Configuring Mistral to use the Graphite Plug-in
 
 Please see the Plug-in Configuration section of the main Mistral User
-Guide for full details of the plug-in configuration file specification.
+Guide for full details of the plug-in configuration specification.
 Where these instructions conflict with information in the main Mistral
 User Guide please verify that the plug-in version available is
 compatible with the version of Mistral in use and, if so, the
 information in the User Guide should be assumed to be correct.
 
-## Mistral Plug-in Configuration File
+## Mistral Plug-in Configuration
 
-The Mistral plug-in configuration file is an ASCII plain text file
-containing all the information required by Mistral to use any OUTPUT or
-UPDATE plug-ins required. Only a single plug-in of each type can be
-configured.
+The Mistral plug-in configuration is in YAML and goes in the same file
+as the main Mistral Configuration File. The plug-in is declared with the
+`plugin` mapping and requires at minimum a `path` key-value pair. All of
+the specified settings are members of the `plugin` mapping.
 
-Once complete the path to the configuration file must be set in the
-environment variable ***MISTRAL\_PLUGIN\_CONFIG***. As with the plug-in
-itself the configuration file must be available in the same canonical
-path on all execution hosts in your cluster.
+    plugin:
+        path: plugins/mistral_graphite/x86_64/mistral_graphite
 
 This section describes the specific settings required to enable the
 Graphite Plug-in.
 
-### PLUGIN directive
+### Path
 
-The *PLUGIN* directive must be set to “OUTPUT” i.e.
+The `path` key must be set to the path of the grahite plguin-in
+executable. This must be either absolute or relative to the 
+`MISTRAL_INSTALL_DIRECTORY` environment variable and needs to be accessible
+and the same on all hosts. Environment variables are not supported in the
+value.
 
-    PLUGIN,OUTPUT
+    path: plugins/mistral_graphite/x86_64/mistral_graphite
 
-### INTERVAL directive
+### Interval
 
-The *INTERVAL* directive takes a single integer value parameter. This
+The `interval` key takes a single integer value parameter. This
 value represents the time in seconds the Mistral application will wait
 between calls to the specified plug-in e.g.
 
-    INTERVAL,300
+    interval: 300
 
 The value chosen is at the discretion of the user, however care should
 be taken to balance the need for timely updates with the scalability of
-the Graphite installation and the average length of jobs on the cluster.
+the Graphite installation and the average length of jobs on the
+cluster.
 
-### PLUGIN\_PATH directive
+### Options
 
-The *PLUGIN\_PATH* directive value must be the fully qualified path to
-the Graphite plug-in as described above i.e.
-
-    PLUGIN_PATH,<install_dir>/output/mistral_graphite_v1.0/x86_64/mistral_graphite
-
-The *PLUGIN\_PATH* value will be passed to */bin/sh* for environment
-variable expansion at the start of each execution host job.
-
-### PLUGIN\_OPTION directive
-
-The *PLUGIN\_OPTION* directive is optional and can occur multiple times.
-Each *PLUGIN\_OPTION* directive is treated as a separate command line
-argument to the plug-in. Whitespace is respected in these values. A full
+The `options` mapping is optional and lists all options to be passed to
+the plug-in as command line arguments to the executable. A full
 list of valid options for this plug-in can be found in section
-[2.2](#anchor-7) [Plug-in Command Line Options](#anchor-7).
+[2.2](#anchor-9) [Plug-in Configuration File Options](#anchor-9). The order of
+options is not preserved. These values are passed to the plug-in executable
+as `--key=value`. For example,
 
-As whitespace is respected command line options that take parameters
-must be specified as separate *PLUGIN\_OPTION* values. For example to
-specify the hostname the plug-in should use to connect to the Graphite
-server the option “*-h hostname*” or “*--host=hostname*” must be
-provided, this must be specified in the plug-in configuration file as:
+    options:
+        host: hostname
+        error: filename
 
-    PLUGIN_OPTION,-h
-    PLUGIN_OPTION,hostname
+will pass to the plug-in executable the command line arguments 
+`--host=hostname` and `--error=filename`.
 
-or
+### Switches
 
-    PLUGIN_OPTION,--host=hostname
+The `switches` mapping is optional and lists all switches to be passed to
+the plug-in as command line arguments to the executable. A full
+list of valid switches for this plug-in can be found in section
+[2.3](#anchor-10) [Plug-in Configuration File Switches](#anchor-10). The order of
+switches is not preserved. Switches not present are presumed to be off. These
+switches are passed to the plug-in executable as `--key`. For example,
 
-Options will be passed to the plug-in in the order in which they are
-defined and each *PLUGIN\_OPTION* value will be passed to */bin/sh* for
-environment variable expansion at the start of each execution host job.
+    switches:
+        4: on
+        6: off
 
-### END Directive
+will pass to the plug-in executable the command line argument `--4`.
 
-The END directive indicates the end of a configuration block and does
-not take any values.
+### Environment Variable Reporting
+The `vars` mapping is optional and lists all environment variables that
+the plug-in should store and report on. Environment variables not listed
+are not reported on. These will be passed to the plug-in executable as
+`--var=key`. For example,
 
-## Plug-in Command Line Options
+    vars:
+        USER: yes
+        HOME: yes
+        SHELL: no
+
+will pass to the plug-in executable the command line arguments `--var=USER` and
+`--var=HOME`.
+
+## Plug-in Configuration File Options
 
 The following command line options are supported by the Graphite
 plug-in.
 
-    -4
-
-Use IPv4 only.
-
-    -6
-
-Use IPv6 only.
-
-    -e filename, --error=[filename]
+    error: [filename]
 
 Set the location of the file which should be used to log any errors
 encountered by the plug-in. Defaults to sending messages to *stderr* for
 handling by Mistral.
 
-    -h hostname, --host=[hostname]
+    host: [hostname]
 
 Set the location of the Graphite host the plug-in should connect to.
 Defaults to “localhost”
 
-    -i [metric], --instance=[metric]
+    instance: [metric]
 
 Set the root metric node name of the plug-in should create data under.
 This value can contain ‘.’ characters to allow more precise
 classification of metrics. Defaults to “mistral”.
 
-    -m [octal-mode], --mode=[octal-mode]
+    mode: [octal-mode]
 
 Permissions used to create the error log file specified by the *-e*
 option. If not specified the file will be created with permissions as
 specified by the user’s current *umask* value.
 
-    -pnumber, --port [number]
+    port: [number]
 
 Set the port the plug-in should use for the connection. Defaults to
 “2003”
+
+## Plug-in Configuration File Switches
+
+    4: on
+
+Use IPv4 only.
+
+    6: on
+
+Use IPv6 only.
 
 # Mistral’s Graphite data model
 

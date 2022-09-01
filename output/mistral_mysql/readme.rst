@@ -23,23 +23,15 @@ The plug-in accepts the following command line options:
 The options would normally be included in a plug-in configuration file, such as
 
 ::
-
-   PLUGIN,OUTPUT
-
-   PLUGIN_PATH,/path/to/mistral_mysql
-
-   INTERVAL,5
-
-   PLUGIN_OPTION,--defaults-file=/path/to/connection-details.cnf
-   PLUGIN_OPTION,--var=USER
-   PLUGIN_OPTION,--var=SHELL
-   PLUGIN_OPTION,--error=/path/to/mistral_influxdb.log
-
-   END
-
-
-To enable the output plug-in you should set the ``MISTRAL_PLUGIN_CONFIG``
-environment variable to point at the plug-in configuration file.
+    plugin:
+        path: /path/to/mistral_myswl
+        interval: 5
+        options:
+            defaults-file: /path/to/connection-details.cnf
+            error: /path/to/mistral_mysql.log
+        vars:
+            USER: yes
+            SHELL: yes
 
 Process Summary
 ---------------
